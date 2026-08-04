@@ -2,6 +2,12 @@
 
 Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è evitare di progettare tutto in anticipo e arrivare rapidamente a un primo scenario completo, osservabile e testabile.
 
+## Stato di avanzamento
+
+**Fase 0 completata:** due agenti SPADE-BDI eseguono i rispettivi piani AgentSpeak e scambiano localmente una richiesta e una risposta correlate. Il server XMPP integrato parte e si arresta insieme allo scenario; lo smoke test è automatizzato.
+
+Il prossimo incremento è la modellazione del dominio e dell'`EnvironmentAgent`, prima della GUI.
+
 ## Decisioni consigliate subito
 
 | Tema | Decisione iniziale | Motivo |
@@ -16,7 +22,7 @@ Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambia
 
 ## Ordine di lavoro
 
-1. Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.
+1. ~~Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.~~ **Completato.**
 2. Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.
 3. Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.
 4. Aggiungere la visualizzazione come proiezione dello stato dell'ambiente.
@@ -66,4 +72,3 @@ Un incremento è concluso quando:
 - [Strategia di test](04_strategia_test.md)
 - [Schemi degli agenti e dei flussi](schemi_agenti_flussi.md)
 - [Linee guida generali](linee_guida_progetto.md)
-

@@ -6,7 +6,7 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 
 | Fase | Obiettivo | Risultato dimostrabile | Criterio di uscita |
 |---|---|---|---|
-| 0 — Spike tecnico | Validare SPADE-BDI e XMPP locale | Due agenti si avviano e comunicano | Esecuzione ripetibile e test smoke superato |
+| 0 — Spike tecnico ✅ | Validare SPADE-BDI e XMPP locale | Due agenti si avviano e comunicano | Completata: esecuzione ripetibile e smoke test automatico |
 | 1 — Dominio e ambiente | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Test unitari sulle regole principali |
 | 2 — Alimentazione | Completare la prima cooperazione | Logistics richiede e Feeding riempie una ciotola | Scenario automatico end-to-end verde |
 | 3 — Cure mediche | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Transizioni e messaggi verificati |
@@ -17,6 +17,8 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 ## Fase 0 — Spike tecnico
 
 Durata indicativa: **mezza giornata**.
+
+**Stato: completata.** La combinazione Python 3.12.4, SPADE 4.1.4 e SPADE-BDI 0.3.2 è stata validata sul PC di sviluppo.
 
 Produrre solo:
 
@@ -80,4 +82,3 @@ Conseguenze negative
 ```
 
 I primi ADR utili saranno: ambiente centralizzato, server XMPP locale, libreria grafica e formato dei messaggi.
-

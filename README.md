@@ -2,7 +2,7 @@
 
 An educational multi-agent system for the automated management of a **Wildlife Rescue Center (CRAS)**, inspired by direct volunteering experience with ENPA.
 
-> **Project status:** architecture and documentation phase. The executable implementation has not started yet.
+> **Project status:** Phase 0 technical spike implemented. Two SPADE-BDI agents run locally and exchange a correlated message through SPADE's embedded XMPP server.
 
 ## Overview
 
@@ -50,8 +50,9 @@ Animals are passive resources whose position and condition are changed by autono
 ```text
 .
 ├── docs/                    # Architecture, workflows, and project notes
-├── src/                     # Application source code (future)
-├── tests/                   # Automated tests (future)
+├── src/tamagotchi_wild/     # Python package and AgentSpeak plans
+├── tests/smoke/             # Local end-to-end compatibility test
+├── pyproject.toml           # Package metadata and pinned direct dependencies
 ├── .gitignore               # Local and generated files excluded from Git
 └── README.md                # Project overview
 ```
@@ -68,4 +69,26 @@ Animals are passive resources whose position and condition are changed by autono
 
 ## Running the project
 
-There is no executable application yet. Runtime setup, dependency installation, and test commands will be added with the first implementation increment. Development will remain local-first so each increment can be executed and verified on the target Windows PC.
+The current executable is the Phase 0 compatibility spike. From PowerShell:
+
+```powershell
+py -3.12 -m venv .my_sdai
+& .\.my_sdai\Scripts\python.exe -m pip install -e ".[dev]"
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild.spike
+```
+
+Expected result:
+
+```text
+PHASE 0 OK
+BDI ready: requester=yes responder=yes
+response_status=acknowledged
+```
+
+Run the automated smoke test with:
+
+```powershell
+& .\.my_sdai\Scripts\python.exe -m pytest
+```
+
+The spike starts and stops its own local XMPP server. It does not require Internet access, external accounts, or manually configured agent credentials at runtime.
