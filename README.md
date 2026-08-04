@@ -58,6 +58,11 @@ Animals are passive resources whose position and condition are changed by autono
 
 ## Documentation
 
+- [Where to start and how to organize the work](docs/00_da_dove_partire.md)
+- [Proposed architecture](docs/01_architettura_proposta.md)
+- [Incremental roadmap](docs/02_roadmap_incrementale.md)
+- [First increment: feeding workflow](docs/03_primo_incremento_alimentazione.md)
+- [Testing strategy](docs/04_strategia_test.md)
 - [Agent architecture and workflows](docs/schemi_agenti_flussi.md)
 - [Project development guidelines](docs/linee_guida_progetto.md)
 
