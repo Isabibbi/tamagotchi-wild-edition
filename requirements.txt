@@ -1,2 +1,0 @@
-spade==4.1.4
-spade-bdi==0.3.2
