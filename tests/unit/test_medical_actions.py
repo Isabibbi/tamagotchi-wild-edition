@@ -58,43 +58,87 @@ def command(
     )
 
 
+def acquire(world, actor_id: str, area_id: str, position: Position) -> None:
+    result = world.apply(
+        command(
+            actor_id,
+            ActionType.ACQUIRE_AREA,
+            target_id=area_id,
+            destination=position,
+        )
+    )
+    assert result.accepted
+
+
+def release(world, actor_id: str, area_id: str) -> None:
+    result = world.apply(
+        command(actor_id, ActionType.RELEASE_AREA, target_id=area_id)
+    )
+    assert result.accepted
+
+
+def apply_in_area(
+    world,
+    actor_id: str,
+    area_id: str,
+    position: Position,
+    action: ActionType,
+    target_id: str = ANIMAL_ID,
+    destination: Position | None = None,
+    quantity: int | None = None,
+):
+    acquire(world, actor_id, area_id, position)
+    result = world.apply(
+        command(actor_id, action, target_id, destination, quantity)
+    )
+    release(world, actor_id, area_id)
+    return result
+
+
 def test_complete_medical_lifecycle_returns_healthy_animal_to_cage() -> None:
     world = medical_world()
 
-    assert world.apply(command(LOGISTICS_ID, ActionType.PICKUP_SICK_ANIMAL)).accepted
-    assert world.apply(
-        command(
-            LOGISTICS_ID,
-            ActionType.DELIVER_TO_TREATMENT,
-            destination=TREATMENT_POSITION,
-        )
+    assert apply_in_area(
+        world, LOGISTICS_ID, "cage-area", CAGE_POSITION, ActionType.PICKUP_SICK_ANIMAL
     ).accepted
-    assert world.apply(
-        command(
-            VETERINARY_ID,
-            ActionType.TAKE_MEDICINE,
-            target_id=MEDICINE_ID,
-            quantity=1,
-        )
+    assert apply_in_area(
+        world,
+        LOGISTICS_ID,
+        "treatment-room",
+        TREATMENT_POSITION,
+        ActionType.DELIVER_TO_TREATMENT,
+        destination=TREATMENT_POSITION,
     ).accepted
-    assert world.apply(
-        command(
-            VETERINARY_ID,
-            ActionType.MOVE_AGENT,
-            target_id=VETERINARY_ID,
-            destination=TREATMENT_POSITION,
-        )
+    assert apply_in_area(
+        world,
+        VETERINARY_ID,
+        "medical-storage",
+        Position(6, 1),
+        ActionType.TAKE_MEDICINE,
+        target_id=MEDICINE_ID,
+        quantity=1,
     ).accepted
-    assert world.apply(command(VETERINARY_ID, ActionType.TREAT_ANIMAL)).accepted
-    assert world.apply(
-        command(LOGISTICS_ID, ActionType.PICKUP_TREATED_ANIMAL)
+    assert apply_in_area(
+        world,
+        VETERINARY_ID,
+        "treatment-room",
+        TREATMENT_POSITION,
+        ActionType.TREAT_ANIMAL,
     ).accepted
-    assert world.apply(
-        command(
-            LOGISTICS_ID,
-            ActionType.RETURN_ANIMAL_TO_CAGE,
-            destination=CAGE_POSITION,
-        )
+    assert apply_in_area(
+        world,
+        LOGISTICS_ID,
+        "treatment-room",
+        TREATMENT_POSITION,
+        ActionType.PICKUP_TREATED_ANIMAL,
+    ).accepted
+    assert apply_in_area(
+        world,
+        LOGISTICS_ID,
+        "cage-area",
+        CAGE_POSITION,
+        ActionType.RETURN_ANIMAL_TO_CAGE,
+        destination=CAGE_POSITION,
     ).accepted
 
     snapshot = world.snapshot()
@@ -108,14 +152,18 @@ def test_complete_medical_lifecycle_returns_healthy_animal_to_cage() -> None:
 
 def test_treatment_requires_medicine_taken_for_same_task() -> None:
     world = medical_world()
-    world.apply(command(LOGISTICS_ID, ActionType.PICKUP_SICK_ANIMAL))
-    world.apply(
-        command(
-            LOGISTICS_ID,
-            ActionType.DELIVER_TO_TREATMENT,
-            destination=TREATMENT_POSITION,
-        )
+    apply_in_area(
+        world, LOGISTICS_ID, "cage-area", CAGE_POSITION, ActionType.PICKUP_SICK_ANIMAL
     )
+    apply_in_area(
+        world,
+        LOGISTICS_ID,
+        "treatment-room",
+        TREATMENT_POSITION,
+        ActionType.DELIVER_TO_TREATMENT,
+        destination=TREATMENT_POSITION,
+    )
+    acquire(world, VETERINARY_ID, "treatment-room", TREATMENT_POSITION)
 
     result = world.apply(command(VETERINARY_ID, ActionType.TREAT_ANIMAL))
 
@@ -127,6 +175,7 @@ def test_treatment_requires_medicine_taken_for_same_task() -> None:
 def test_duplicate_pickup_does_not_repeat_transition() -> None:
     world = medical_world()
     pickup = command(LOGISTICS_ID, ActionType.PICKUP_SICK_ANIMAL)
+    acquire(world, LOGISTICS_ID, "cage-area", CAGE_POSITION)
 
     first = world.apply(pickup)
     duplicate = world.apply(pickup)
@@ -134,20 +183,30 @@ def test_duplicate_pickup_does_not_repeat_transition() -> None:
     assert first.accepted is True
     assert duplicate.accepted is True
     assert duplicate.reason == "already_applied"
-    assert len(world.events) == 1
+    assert len(
+        [
+            event
+            for event in world.events
+            if event.action is ActionType.PICKUP_SICK_ANIMAL
+        ]
+    ) == 1
     assert world.snapshot().animals[0].health is HealthStatus.IN_OUTBOUND_TRANSPORT
 
 
 def test_take_medicine_fails_without_stock_and_changes_nothing() -> None:
     world = medical_world(medicine_quantity=0)
-    world.apply(command(LOGISTICS_ID, ActionType.PICKUP_SICK_ANIMAL))
-    world.apply(
-        command(
-            LOGISTICS_ID,
-            ActionType.DELIVER_TO_TREATMENT,
-            destination=TREATMENT_POSITION,
-        )
+    apply_in_area(
+        world, LOGISTICS_ID, "cage-area", CAGE_POSITION, ActionType.PICKUP_SICK_ANIMAL
     )
+    apply_in_area(
+        world,
+        LOGISTICS_ID,
+        "treatment-room",
+        TREATMENT_POSITION,
+        ActionType.DELIVER_TO_TREATMENT,
+        destination=TREATMENT_POSITION,
+    )
+    acquire(world, VETERINARY_ID, "medical-storage", Position(6, 1))
     event_count_before = len(world.events)
 
     result = world.apply(

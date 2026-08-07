@@ -45,6 +45,14 @@ class EnvironmentEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class AreaAccessState:
+    area_id: str
+    capacity: int
+    occupants: tuple[str, ...]
+    max_observed: int
+
+
+@dataclass(frozen=True, slots=True)
 class WorldSnapshot:
     width: int
     height: int
@@ -55,6 +63,7 @@ class WorldSnapshot:
     medicine_stocks: tuple[MedicineStock, ...]
     agents: tuple[AgentState, ...]
     tasks: tuple[Task, ...]
+    area_access: tuple[AreaAccessState, ...]
     event_count: int
 
 
@@ -80,6 +89,14 @@ class EnvironmentState:
         self._entity_ids: set[str] = set(self._areas)
         self._events: list[EnvironmentEvent] = []
         self._applied_task_actions: dict[tuple[str, ActionType], ActionResult] = {}
+        self._task_claims: dict[tuple[str, str], str] = {}
+        self._area_occupants: dict[str, set[str]] = {
+            area_id: set() for area_id in self._areas
+        }
+        self._agent_area_access: dict[str, str] = {}
+        self._max_area_occupancy: dict[str, int] = {
+            area_id: 0 for area_id in self._areas
+        }
         self._validate_areas()
 
     @property
@@ -126,6 +143,13 @@ class EnvironmentState:
     def apply(self, command: ActionCommand) -> ActionResult:
         """Validate and apply one command; rejected commands never change state."""
 
+        if command.action is ActionType.CLAIM_TASK:
+            return self._apply_task_claim(command)
+        if command.action is ActionType.ACQUIRE_AREA:
+            return self._apply_area_acquire(command)
+        if command.action is ActionType.RELEASE_AREA:
+            return self._apply_area_release(command)
+
         idempotency_key = self._idempotency_key(command)
         if idempotency_key is not None:
             previous = self._applied_task_actions.get(idempotency_key)
@@ -168,8 +192,137 @@ class EnvironmentState:
             ),
             agents=tuple(sorted(self._agents.values(), key=lambda item: item.id)),
             tasks=tuple(sorted(self._tasks.values(), key=lambda item: item.id)),
+            area_access=tuple(
+                AreaAccessState(
+                    area_id=area_id,
+                    capacity=min(area.capacity, 2),
+                    occupants=tuple(sorted(self._area_occupants[area_id])),
+                    max_observed=self._max_area_occupancy[area_id],
+                )
+                for area_id, area in sorted(self._areas.items())
+            ),
             event_count=len(self._events),
         )
+
+    def _apply_task_claim(self, command: ActionCommand) -> ActionResult:
+        try:
+            task = self._task(command.task_id)
+            actor = self._agents.get(command.actor_id)
+            if actor is None:
+                raise UnknownEntityError(f"unknown agent: {command.actor_id}")
+            expected_role = {
+                "feeding_coordination": AgentRole.LOGISTICS,
+                "feeding_execution": AgentRole.FEEDING,
+                "medical_coordination": AgentRole.VETERINARY,
+                "transport_outbound": AgentRole.LOGISTICS,
+                "transport_return": AgentRole.LOGISTICS,
+            }.get(command.target_id)
+            if expected_role is None:
+                raise InvalidActionError(f"unknown task phase: {command.target_id}")
+            if actor.role is not expected_role:
+                raise InvalidActionError(
+                    f"agent {actor.id} cannot claim phase {command.target_id}"
+                )
+            if command.target_id.startswith("feeding") and task.kind is not TaskType.REFILL_BOWL:
+                raise InvalidActionError(f"task {task.id} is not a feeding task")
+            if command.target_id.startswith(("medical", "transport")) and task.kind is not TaskType.TREAT_ANIMAL:
+                raise InvalidActionError(f"task {task.id} is not a medical task")
+        except EnvironmentError as exc:
+            return ActionResult(False, str(exc))
+
+        key = (task.id, command.target_id)
+        owner = self._task_claims.get(key)
+        if owner is not None:
+            if owner == command.actor_id:
+                return ActionResult(True, "already_claimed")
+            return ActionResult(False, f"task phase already claimed by {owner}")
+
+        self._task_claims[key] = command.actor_id
+        if command.target_id in {"feeding_execution", "medical_coordination"}:
+            self._tasks[task.id] = replace(
+                task,
+                status=TaskStatus.ASSIGNED,
+                assigned_to=command.actor_id,
+            )
+        event = self._append_event(command, actor.position, "task phase claimed")
+        return ActionResult(True, "accepted", event.sequence)
+
+    def _apply_area_acquire(self, command: ActionCommand) -> ActionResult:
+        try:
+            actor = self._agents.get(command.actor_id)
+            if actor is None:
+                raise UnknownEntityError(f"unknown agent: {command.actor_id}")
+            area = self._areas.get(command.target_id)
+            if area is None:
+                raise UnknownEntityError(f"unknown area: {command.target_id}")
+            current = self._agent_area_access.get(actor.id)
+            if current == area.id:
+                return ActionResult(True, "already_acquired")
+            if current is not None:
+                raise InvalidActionError(
+                    f"agent {actor.id} must release area {current} first"
+                )
+            occupants = self._area_occupants[area.id]
+            capacity = min(area.capacity, 2)
+            if len(occupants) >= capacity:
+                raise InvalidActionError(f"area {area.id} is at capacity")
+            destination = command.destination or actor.position
+            self._validate_position(destination)
+            if destination not in area.cells:
+                raise InvalidActionError(f"destination must be in area {area.id}")
+        except EnvironmentError as exc:
+            return ActionResult(False, str(exc))
+
+        origin = actor.position
+        occupants.add(actor.id)
+        self._agent_area_access[actor.id] = area.id
+        self._agents[actor.id] = replace(actor, position=destination)
+        self._max_area_occupancy[area.id] = max(
+            self._max_area_occupancy[area.id],
+            len(occupants),
+        )
+        event = self._append_event(command, origin, "area acquired")
+        return ActionResult(True, "accepted", event.sequence)
+
+    def _apply_area_release(self, command: ActionCommand) -> ActionResult:
+        try:
+            actor = self._agents.get(command.actor_id)
+            if actor is None:
+                raise UnknownEntityError(f"unknown agent: {command.actor_id}")
+            if command.target_id not in self._areas:
+                raise UnknownEntityError(f"unknown area: {command.target_id}")
+            current = self._agent_area_access.get(actor.id)
+            if current is None:
+                return ActionResult(True, "already_released")
+            if current != command.target_id:
+                raise InvalidActionError(f"agent {actor.id} does not hold area {command.target_id}")
+        except EnvironmentError as exc:
+            return ActionResult(False, str(exc))
+
+        self._area_occupants[command.target_id].remove(actor.id)
+        del self._agent_area_access[actor.id]
+        event = self._append_event(command, actor.position, "area released")
+        return ActionResult(True, "accepted", event.sequence)
+
+    def _append_event(
+        self,
+        command: ActionCommand,
+        origin: Position | None,
+        detail: str,
+    ) -> EnvironmentEvent:
+        event = EnvironmentEvent(
+            sequence=len(self._events) + 1,
+            action=command.action,
+            actor_id=command.actor_id,
+            target_id=command.target_id,
+            origin=origin,
+            destination=command.destination,
+            detail=detail,
+            task_id=command.task_id,
+            quantity=command.quantity,
+        )
+        self._events.append(event)
+        return event
 
     def _apply_validated(self, command: ActionCommand) -> EnvironmentEvent:
         if not command.actor_id.strip():
@@ -238,6 +391,8 @@ class EnvironmentState:
 
     def _take_food(self, command: ActionCommand) -> Position:
         task = self._feeding_task(command.task_id)
+        self._actor(command.actor_id, AgentRole.FEEDING)
+        self._require_area_access(command.actor_id, AreaType.FOOD_STORAGE)
         food_stock = self._food_stocks.get(command.target_id)
         if food_stock is None:
             raise UnknownEntityError(f"unknown food stock: {command.target_id}")
@@ -260,6 +415,8 @@ class EnvironmentState:
 
     def _fill_bowl(self, command: ActionCommand) -> Position:
         task = self._feeding_task(command.task_id)
+        self._actor(command.actor_id, AgentRole.FEEDING)
+        self._require_area_access(command.actor_id, AreaType.CAGE_AREA)
         bowl = self._bowls.get(command.target_id)
         if bowl is None:
             raise UnknownEntityError(f"unknown bowl: {command.target_id}")
@@ -315,6 +472,7 @@ class EnvironmentState:
     def _pickup_sick_animal(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        self._require_area_access(command.actor_id, AreaType.CAGE_AREA)
         animal = self._medical_animal(task, command.target_id)
         if animal.health is not HealthStatus.SICK:
             raise InvalidActionError(f"animal {animal.id} is not sick in its cage")
@@ -336,6 +494,7 @@ class EnvironmentState:
     def _deliver_to_treatment(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        self._require_area_access(command.actor_id, AreaType.TREATMENT_ROOM)
         animal = self._medical_animal(task, command.target_id)
         if animal.health is not HealthStatus.IN_OUTBOUND_TRANSPORT:
             raise InvalidActionError(f"animal {animal.id} is not in outbound transport")
@@ -358,6 +517,7 @@ class EnvironmentState:
     def _take_medicine(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         veterinary = self._actor(command.actor_id, AgentRole.VETERINARY)
+        self._require_area_access(command.actor_id, AreaType.MEDICAL_STORAGE)
         animal = self._medical_animal(task, task.target_id)
         if animal.health is not HealthStatus.IN_TREATMENT:
             raise InvalidActionError(f"animal {animal.id} is not ready for treatment")
@@ -384,6 +544,7 @@ class EnvironmentState:
     def _treat_animal(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         veterinary = self._actor(command.actor_id, AgentRole.VETERINARY)
+        self._require_area_access(command.actor_id, AreaType.TREATMENT_ROOM)
         animal = self._medical_animal(task, command.target_id)
         if animal.health is not HealthStatus.IN_TREATMENT:
             raise InvalidActionError(f"animal {animal.id} is not in treatment")
@@ -401,6 +562,7 @@ class EnvironmentState:
     def _pickup_treated_animal(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        self._require_area_access(command.actor_id, AreaType.TREATMENT_ROOM)
         animal = self._medical_animal(task, command.target_id)
         if animal.health is not HealthStatus.TREATED:
             raise InvalidActionError(f"animal {animal.id} has not been treated")
@@ -418,6 +580,7 @@ class EnvironmentState:
     def _return_animal_to_cage(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)
         logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        self._require_area_access(command.actor_id, AreaType.CAGE_AREA)
         animal = self._medical_animal(task, command.target_id)
         if animal.health is not HealthStatus.IN_RETURN_TRANSPORT:
             raise InvalidActionError(f"animal {animal.id} is not in return transport")
@@ -473,6 +636,14 @@ class EnvironmentState:
         area = self.area_at(position)
         if area is None or area.kind is not expected:
             raise InvalidActionError(f"{subject} must be in {expected.value}")
+
+    def _require_area_access(self, actor_id: str, expected: AreaType) -> None:
+        area_id = self._agent_area_access.get(actor_id)
+        area = self._areas.get(area_id) if area_id is not None else None
+        if area is None or area.kind is not expected:
+            raise InvalidActionError(
+                f"agent {actor_id} must acquire {expected.value} before acting"
+            )
 
     @staticmethod
     def _feeding_quantity(quantity: int | None) -> int:

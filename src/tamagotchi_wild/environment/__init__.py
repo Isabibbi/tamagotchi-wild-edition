@@ -7,12 +7,14 @@ from tamagotchi_wild.environment.errors import (
     UnknownEntityError,
 )
 from tamagotchi_wild.environment.state import (
+    AreaAccessState,
     EnvironmentEvent,
     EnvironmentState,
     WorldSnapshot,
 )
 
 __all__ = [
+    "AreaAccessState",
     "DuplicateEntityError",
     "EnvironmentError",
     "EnvironmentEvent",

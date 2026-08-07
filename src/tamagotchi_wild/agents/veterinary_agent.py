@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Sequence
 
 import agentspeak as asp
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 from spade.template import Template
 
 from tamagotchi_wild.agents.bdi_base import ProjectBDIAgent, term_text
+from tamagotchi_wild.agents.environment_actions import (
+    acquire_area,
+    claim_task,
+    environment_action,
+    release_area,
+)
 from tamagotchi_wild.domain import ActionType, Position
 from tamagotchi_wild.messaging import (
-    ActionRequest,
     ActionResponse,
     ENVIRONMENT_ONTOLOGY,
     MESSAGE_LANGUAGE,
@@ -25,7 +31,6 @@ from tamagotchi_wild.messaging import (
     TRANSPORT_ONTOLOGY,
     TransportRequest,
     TransportStatus,
-    request_metadata,
     workflow_metadata,
 )
 from tamagotchi_wild.observability import ActivityLog, MessageTrace
@@ -48,12 +53,33 @@ class VeterinaryAgent(ProjectBDIAgent):
             if perception.task_id in self.agent.seen_tasks:
                 return
             self.agent.seen_tasks.add(perception.task_id)
-            self.agent.bdi.set_belief(
-                "sick_animal",
-                perception.task_id,
-                perception.animal_id,
-                perception.cage_id,
+            template = Template()
+            template.set_metadata("ontology", ENVIRONMENT_ONTOLOGY)
+            template.set_metadata("language", MESSAGE_LANGUAGE)
+            template.set_metadata("conversation-id", perception.task_id)
+            self.agent.add_behaviour(
+                self.agent.ClaimMedicalCoordination(perception),
+                template,
             )
+
+    class ClaimMedicalCoordination(OneShotBehaviour):
+        def __init__(self, perception: SickAnimalPerception) -> None:
+            super().__init__()
+            self.perception = perception
+
+        async def run(self) -> None:
+            result = await claim_task(
+                self,
+                self.perception.task_id,
+                "medical_coordination",
+            )
+            if result.accepted:
+                self.agent.bdi.set_belief(
+                    "sick_animal",
+                    self.perception.task_id,
+                    self.perception.animal_id,
+                    self.perception.cage_id,
+                )
 
     class RequestTransport(CyclicBehaviour):
         def __init__(
@@ -81,23 +107,24 @@ class VeterinaryAgent(ProjectBDIAgent):
                 self.cage_id,
                 self.direction,
             )
-            message = _message(
-                self.agent.logistics_jid,
-                request.to_json(),
-                workflow_metadata(
+            for logistics_jid in self.agent.logistics_jids:
+                message = _message(
+                    logistics_jid,
+                    request.to_json(),
+                    workflow_metadata(
+                        TRANSPORT_ONTOLOGY,
+                        "request",
+                        self.task_id,
+                    ),
+                    self.task_id,
+                )
+                await self.send(message)
+                self.agent._trace_message(
+                    logistics_jid,
                     TRANSPORT_ONTOLOGY,
                     "request",
                     self.task_id,
-                ),
-                self.task_id,
-            )
-            await self.send(message)
-            self.agent._trace_message(
-                self.agent.logistics_jid,
-                TRANSPORT_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
+                )
             event = (
                 "outbound_transport_requested"
                 if self.direction == OUTBOUND
@@ -110,27 +137,13 @@ class VeterinaryAgent(ProjectBDIAgent):
                 animal=self.animal_id,
             )
 
-            accepted = await self.receive(timeout=self.agent.timeout_seconds)
-            if accepted is None:
+            winner = await self._wait_for_winner()
+            if winner is None:
                 self._fail("timeout waiting for transport acceptance")
                 self.kill()
                 return
-            try:
-                self.agent._validate_conversation(accepted, self.task_id)
-                status = TransportStatus.from_json(accepted.body)
-                if (
-                    accepted.get_metadata("performative") != "agree"
-                    or status.status != "accepted"
-                ):
-                    self._fail(status.reason or "transport refused")
-                    self.kill()
-                    return
-            except MessageContractError as exc:
-                self._fail(str(exc))
-                self.kill()
-                return
 
-            result_message = await self.receive(timeout=self.agent.timeout_seconds)
+            result_message = await self._wait_for_completion(winner)
             if result_message is None:
                 self._fail("timeout waiting for transport completion")
                 self.kill()
@@ -156,6 +169,44 @@ class VeterinaryAgent(ProjectBDIAgent):
                 self._fail(str(exc))
             self.kill()
 
+        async def _wait_for_winner(self) -> str | None:
+            deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
+            refusals: set[str] = set()
+            while len(refusals) < len(self.agent.logistics_jids):
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return None
+                message = await self.receive(timeout=remaining)
+                if message is None:
+                    return None
+                try:
+                    self.agent._validate_conversation(message, self.task_id)
+                    status = TransportStatus.from_json(message.body)
+                except MessageContractError:
+                    continue
+                sender = str(message.sender).split("/", 1)[0]
+                if (
+                    message.get_metadata("performative") == "agree"
+                    and status.status == "accepted"
+                ):
+                    return sender
+                if message.get_metadata("performative") == "refuse":
+                    refusals.add(sender)
+            return None
+
+        async def _wait_for_completion(self, winner: str) -> Message | None:
+            deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
+            while True:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return None
+                message = await self.receive(timeout=remaining)
+                if message is None:
+                    return None
+                sender = str(message.sender).split("/", 1)[0]
+                if sender == winner:
+                    return message
+
         def _fail(self, reason: str) -> None:
             self.agent.reject_task(self.task_id, self.animal_id, reason)
 
@@ -179,24 +230,26 @@ class VeterinaryAgent(ProjectBDIAgent):
             self.started = True
             operations = (
                 (
+                    self.agent.medical_area_id,
+                    self.agent.medicine_position,
                     ActionType.TAKE_MEDICINE,
                     self.agent.medicine_stock_id,
-                    None,
                     1,
                 ),
                 (
-                    ActionType.MOVE_AGENT,
-                    self.agent.agent_label,
+                    self.agent.treatment_area_id,
                     self.agent.treatment_position,
+                    ActionType.TREAT_ANIMAL,
+                    self.animal_id,
                     None,
                 ),
-                (ActionType.TREAT_ANIMAL, self.animal_id, None, None),
             )
-            for action, target_id, destination, quantity in operations:
-                result = await self._environment_action(
+            for area_id, access_position, action, target_id, quantity in operations:
+                result = await self._perform_in_area(
+                    area_id,
+                    access_position,
                     action,
                     target_id,
-                    destination,
                     quantity,
                 )
                 if not result.accepted:
@@ -222,50 +275,31 @@ class VeterinaryAgent(ProjectBDIAgent):
             )
             self.kill()
 
-        async def _environment_action(
+        async def _perform_in_area(
             self,
+            area_id: str,
+            access_position: Position,
             action: ActionType,
             target_id: str,
-            destination: Position | None,
             quantity: int | None,
         ) -> ActionResponse:
-            request = ActionRequest(
-                task_id=self.task_id,
-                actor_id=self.agent.agent_label,
-                target_id=target_id,
-                requested_action=action,
-                destination=destination,
+            access = await acquire_area(
+                self,
+                self.task_id,
+                area_id,
+                access_position,
+            )
+            if not access.accepted:
+                return access
+            result = await environment_action(
+                self,
+                self.task_id,
+                action,
+                target_id,
                 quantity=quantity,
             )
-            message = _message(
-                self.agent.environment_jid,
-                request.to_json(),
-                request_metadata(self.task_id),
-                self.task_id,
-            )
-            await self.send(message)
-            self.agent._trace_message(
-                self.agent.environment_jid,
-                ENVIRONMENT_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
-            response = await self.receive(timeout=self.agent.timeout_seconds)
-            if response is None:
-                return ActionResponse(
-                    self.task_id,
-                    False,
-                    f"timeout waiting for {action.value}",
-                    None,
-                )
-            try:
-                self.agent._validate_conversation(response, self.task_id)
-                parsed = ActionResponse.from_json(response.body)
-                if parsed.task_id != self.task_id:
-                    raise MessageContractError("response task_id does not match")
-                return parsed
-            except MessageContractError as exc:
-                return ActionResponse(self.task_id, False, str(exc), None)
+            released = await release_area(self, self.task_id, area_id)
+            return result if released.accepted else released
 
     class RejectTask(CyclicBehaviour):
         def __init__(self, task_id: str, animal_id: str, reason: str) -> None:
@@ -280,26 +314,12 @@ class VeterinaryAgent(ProjectBDIAgent):
                 self.kill()
                 return
             self.started = True
-            request = ActionRequest(
-                task_id=self.task_id,
-                actor_id=self.agent.agent_label,
-                target_id=self.task_id,
-                requested_action=ActionType.FAIL_TASK,
-            )
-            message = _message(
-                self.agent.environment_jid,
-                request.to_json(),
-                request_metadata(self.task_id),
+            await environment_action(
+                self,
+                self.task_id,
+                ActionType.FAIL_TASK,
                 self.task_id,
             )
-            await self.send(message)
-            self.agent._trace_message(
-                self.agent.environment_jid,
-                ENVIRONMENT_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
-            await self.receive(timeout=self.agent.timeout_seconds)
             self.agent.failure_reasons[self.task_id] = self.reason
             self.agent.activity_log.record(
                 self.task_id,
@@ -314,7 +334,7 @@ class VeterinaryAgent(ProjectBDIAgent):
         self,
         jid: str,
         password: str,
-        logistics_jid: str,
+        logistics_jid: str | Sequence[str],
         environment_jid: str,
         medicine_stock_id: str,
         treatment_position: Position,
@@ -322,11 +342,22 @@ class VeterinaryAgent(ProjectBDIAgent):
         message_trace: MessageTrace,
         timeout_seconds: float = 10.0,
         asl_file: Path = DEFAULT_ASL,
+        medicine_position: Position = Position(6, 1),
+        medical_area_id: str = "medical-storage",
+        treatment_area_id: str = "treatment-room",
     ) -> None:
-        self.logistics_jid = logistics_jid
+        self.logistics_jids = (
+            (logistics_jid,) if isinstance(logistics_jid, str) else tuple(logistics_jid)
+        )
+        if not self.logistics_jids:
+            raise ValueError("at least one Logistics Agent JID is required")
+        self.logistics_jid = self.logistics_jids[0]
         self.environment_jid = environment_jid
         self.medicine_stock_id = medicine_stock_id
         self.treatment_position = treatment_position
+        self.medicine_position = medicine_position
+        self.medical_area_id = medical_area_id
+        self.treatment_area_id = treatment_area_id
         self.activity_log = activity_log
         self.message_trace = message_trace
         self.timeout_seconds = timeout_seconds
@@ -334,9 +365,9 @@ class VeterinaryAgent(ProjectBDIAgent):
         self.seen_tasks: set[str] = set()
         self.failure_reasons: dict[str, str] = {}
         self.rejection_started: set[str] = set()
-        self.scenario_status: str | None = None
-        self.scenario_task_id: str | None = None
-        self.scenario_done = asyncio.Event()
+        self.workflow_status: str | None = None
+        self.workflow_task_id: str | None = None
+        self.workflow_done = asyncio.Event()
         super().__init__(jid, password, str(asl_file))
 
     async def setup(self) -> None:
@@ -381,13 +412,13 @@ class VeterinaryAgent(ProjectBDIAgent):
             )
             yield
 
-        @actions.add(".finish_medical_scenario", 2)
-        def finish_medical_scenario(agent, term, intention):
+        @actions.add(".finish_medical_workflow", 2)
+        def finish_medical_workflow(agent, term, intention):
             task_id = term_text(asp.grounded(term.args[0], intention.scope))
             status = term_text(asp.grounded(term.args[1], intention.scope))
-            self.scenario_task_id = task_id
-            self.scenario_status = status
-            self.scenario_done.set()
+            self.workflow_task_id = task_id
+            self.workflow_status = status
+            self.workflow_done.set()
             yield
 
     def reject_task(self, task_id: str, animal_id: str, reason: str) -> None:

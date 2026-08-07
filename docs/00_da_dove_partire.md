@@ -4,12 +4,11 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 
 ## Stato di avanzamento
 
-**Fase 3 completata:** Veterinary e Logistics eseguono il ciclo completo di
-trasporto, cura e rientro tramite agenti SPADE-BDI reali. L'animale è una risorsa
-passiva e tutte le transizioni sono applicate dall'ambiente centralizzato.
+**Fasi 4 e 5 completate:** alimentazione e cure mediche vengono eseguite insieme
+da un massimo di 7 operatori configurabili. L'Environment assegna ogni fase a un
+solo agente e limita a 2 gli accessi contemporanei a ciascuna area.
 
-Le fasi core richieste sono complete. Scalabilità, concorrenza e GUI restano
-incrementi avanzati opzionali nella roadmap.
+La visualizzazione grafica resta l'incremento successivo.
 
 ## Decisioni consigliate subito
 

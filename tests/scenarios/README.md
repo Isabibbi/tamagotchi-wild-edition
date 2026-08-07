@@ -1,5 +1,4 @@
-# Test di scenario
+# Test della simulazione integrata
 
-Questa cartella conterrà i test end-to-end dei workflow completi. Il primo sarà
-aggiunto con l'incremento alimentazione: Logistics richiede il rifornimento e
-Feeding riempie una ciotola vuota.
+Questa directory contiene un solo test end-to-end: avvia contemporaneamente
+alimentazione e cure mediche con sette operatori SPADE configurati a runtime.

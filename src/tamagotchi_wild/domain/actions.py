@@ -9,6 +9,9 @@ from tamagotchi_wild.domain.entities import HealthStatus, Position
 
 
 class ActionType(StrEnum):
+    CLAIM_TASK = "claim_task"
+    ACQUIRE_AREA = "acquire_area"
+    RELEASE_AREA = "release_area"
     MOVE_AGENT = "move_agent"
     MOVE_ANIMAL = "move_animal"
     UPDATE_ANIMAL_HEALTH = "update_animal_health"

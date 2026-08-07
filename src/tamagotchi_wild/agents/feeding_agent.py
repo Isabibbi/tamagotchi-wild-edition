@@ -11,9 +11,14 @@ from spade.message import Message
 from spade.template import Template
 
 from tamagotchi_wild.agents.bdi_base import ProjectBDIAgent, term_text
-from tamagotchi_wild.domain import ActionType
+from tamagotchi_wild.agents.environment_actions import (
+    acquire_area,
+    claim_task,
+    environment_action,
+    release_area,
+)
+from tamagotchi_wild.domain import ActionType, Position
 from tamagotchi_wild.messaging import (
-    ActionRequest,
     ActionResponse,
     ENVIRONMENT_ONTOLOGY,
     FEEDING_ONTOLOGY,
@@ -21,7 +26,6 @@ from tamagotchi_wild.messaging import (
     FeedingTaskRequest,
     MESSAGE_LANGUAGE,
     MessageContractError,
-    request_metadata,
     workflow_metadata,
 )
 from tamagotchi_wild.observability import ActivityLog, MessageTrace
@@ -46,11 +50,57 @@ class FeedingAgent(ProjectBDIAgent):
 
             self.agent.seen_tasks.add(request.task_id)
             self.agent.task_requesters[request.task_id] = str(message.sender)
-            self.agent.bdi.set_belief(
-                "feeding_task",
-                request.task_id,
-                request.cage_id,
-                request.bowl_id,
+            template = Template()
+            template.set_metadata("ontology", ENVIRONMENT_ONTOLOGY)
+            template.set_metadata("language", MESSAGE_LANGUAGE)
+            template.set_metadata("conversation-id", request.task_id)
+            self.agent.add_behaviour(
+                self.agent.ClaimFeedingTask(request),
+                template,
+            )
+
+    class ClaimFeedingTask(OneShotBehaviour):
+        def __init__(self, request: FeedingTaskRequest) -> None:
+            super().__init__()
+            self.request = request
+
+        async def run(self) -> None:
+            result = await claim_task(
+                self,
+                self.request.task_id,
+                "feeding_execution",
+            )
+            if result.accepted:
+                self.agent.bdi.set_belief(
+                    "feeding_task",
+                    self.request.task_id,
+                    self.request.cage_id,
+                    self.request.bowl_id,
+                )
+                return
+
+            requester = self.agent.task_requesters[self.request.task_id]
+            body = FeedingStatus(
+                self.request.task_id,
+                "refused",
+                result.reason,
+            ).to_json()
+            message = _message(
+                requester,
+                body,
+                workflow_metadata(
+                    FEEDING_ONTOLOGY,
+                    "refuse",
+                    self.request.task_id,
+                ),
+                self.request.task_id,
+            )
+            await self.send(message)
+            self.agent._trace_message(
+                requester,
+                FEEDING_ONTOLOGY,
+                "refuse",
+                self.request.task_id,
             )
 
     class ExecuteFeeding(CyclicBehaviour):
@@ -74,23 +124,30 @@ class FeedingAgent(ProjectBDIAgent):
                 "task_accepted",
             )
 
-            take_result = await self._environment_action(
+            take_result = await self._perform_in_area(
+                self.agent.food_area_id,
+                self.agent.food_position,
                 ActionType.TAKE_FOOD,
                 self.agent.food_stock_id,
+                1,
             )
             if not take_result.accepted:
-                await self._environment_action(
+                await environment_action(
+                    self,
+                    self.task_id,
                     ActionType.FAIL_TASK,
                     self.task_id,
-                    quantity=None,
                 )
                 await self._fail(requester, take_result.reason)
                 self.kill()
                 return
 
-            fill_result = await self._environment_action(
+            fill_result = await self._perform_in_area(
+                self.agent.cage_area_id,
+                self.agent.bowl_position,
                 ActionType.FILL_BOWL,
                 self.bowl_id,
+                1,
             )
             if not fill_result.accepted:
                 await self._fail(requester, fill_result.reason)
@@ -106,49 +163,31 @@ class FeedingAgent(ProjectBDIAgent):
             self.agent.bdi.set_belief("feeding_succeeded", self.task_id)
             self.kill()
 
-        async def _environment_action(
+        async def _perform_in_area(
             self,
+            area_id: str,
+            destination: Position,
             action: ActionType,
             target_id: str,
-            quantity: int | None = 1,
+            quantity: int | None,
         ) -> ActionResponse:
-            request = ActionRequest(
-                task_id=self.task_id,
-                actor_id=self.agent.agent_label,
-                target_id=target_id,
-                requested_action=action,
+            access = await acquire_area(
+                self,
+                self.task_id,
+                area_id,
+                destination,
+            )
+            if not access.accepted:
+                return access
+            result = await environment_action(
+                self,
+                self.task_id,
+                action,
+                target_id,
                 quantity=quantity,
             )
-            message = _message(
-                self.agent.environment_jid,
-                request.to_json(),
-                request_metadata(self.task_id),
-                self.task_id,
-            )
-            await self.send(message)
-            self.agent._trace_message(
-                self.agent.environment_jid,
-                ENVIRONMENT_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
-
-            response = await self.receive(timeout=self.agent.timeout_seconds)
-            if response is None:
-                return ActionResponse(
-                    self.task_id,
-                    False,
-                    f"timeout waiting for {action.value}",
-                    None,
-                )
-            try:
-                self.agent._validate_conversation(response, self.task_id)
-                parsed = ActionResponse.from_json(response.body)
-                if parsed.task_id != self.task_id:
-                    raise MessageContractError("response task_id does not match")
-                return parsed
-            except MessageContractError as exc:
-                return ActionResponse(self.task_id, False, str(exc), None)
+            released = await release_area(self, self.task_id, area_id)
+            return result if released.accepted else released
 
         async def _send_status(
             self,
@@ -193,12 +232,20 @@ class FeedingAgent(ProjectBDIAgent):
         message_trace: MessageTrace,
         timeout_seconds: float = 10.0,
         asl_file: Path = DEFAULT_ASL,
+        food_position: Position = Position(1, 1),
+        bowl_position: Position = Position(2, 4),
+        food_area_id: str = "food-storage",
+        cage_area_id: str = "cage-area",
     ) -> None:
         self.environment_jid = environment_jid
         self.food_stock_id = food_stock_id
         self.activity_log = activity_log
         self.message_trace = message_trace
         self.timeout_seconds = timeout_seconds
+        self.food_position = food_position
+        self.bowl_position = bowl_position
+        self.food_area_id = food_area_id
+        self.cage_area_id = cage_area_id
         self.agent_label = jid.split("@", 1)[0]
         self.seen_tasks: set[str] = set()
         self.task_requesters: dict[str, str] = {}

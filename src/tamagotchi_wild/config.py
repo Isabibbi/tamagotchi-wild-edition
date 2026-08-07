@@ -1,4 +1,4 @@
-"""Configurazione non segreta della griglia iniziale."""
+"""Configurazione della griglia e della simulazione multi-agente."""
 
 from __future__ import annotations
 
@@ -15,6 +15,42 @@ class GridConfig:
 
 
 DEFAULT_GRID = GridConfig()
+MAX_OPERATIONAL_AGENTS = 7
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationConfig:
+    """Numero di operatori avviati insieme; Environment non e' contato."""
+
+    veterinary_agents: int = 2
+    logistics_agents: int = 3
+    feeding_agents: int = 2
+
+    def __post_init__(self) -> None:
+        counts = {
+            "veterinary_agents": self.veterinary_agents,
+            "logistics_agents": self.logistics_agents,
+            "feeding_agents": self.feeding_agents,
+        }
+        for name, value in counts.items():
+            if type(value) is not int or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.operator_count > MAX_OPERATIONAL_AGENTS:
+            raise ValueError(
+                f"at most {MAX_OPERATIONAL_AGENTS} operational agents are allowed"
+            )
+
+    @property
+    def operator_count(self) -> int:
+        return (
+            self.veterinary_agents
+            + self.logistics_agents
+            + self.feeding_agents
+        )
+
+    @staticmethod
+    def jids(role: str, count: int) -> tuple[str, ...]:
+        return tuple(f"{role}_{index:02d}@localhost" for index in range(1, count + 1))
 
 
 def _rectangle(x_start: int, x_end: int, y_start: int, y_end: int):
@@ -47,7 +83,7 @@ def default_areas(config: GridConfig = DEFAULT_GRID) -> tuple[Area, ...]:
             id="cage-area",
             kind=AreaType.CAGE_AREA,
             cells=_rectangle(0, split_x, split_y, config.height),
-            capacity=4,
+            capacity=2,
         ),
         Area(
             id="treatment-room",

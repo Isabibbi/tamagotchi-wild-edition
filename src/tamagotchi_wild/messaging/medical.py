@@ -102,7 +102,13 @@ class TransportStatus:
     def from_json(cls, body: str) -> TransportStatus:
         payload = _decode(body)
         status = _text(payload, "status")
-        if status not in {"accepted", "patient_ready", "returned", "failed"}:
+        if status not in {
+            "accepted",
+            "patient_ready",
+            "returned",
+            "failed",
+            "refused",
+        }:
             raise MessageContractError(f"invalid transport status: {status}")
         reason = payload.get("reason", "")
         if not isinstance(reason, str):

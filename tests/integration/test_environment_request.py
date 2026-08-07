@@ -49,8 +49,21 @@ def test_feeding_actions_are_applied_through_json_contracts() -> None:
     world = create_default_environment()
     world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 4)))
     world.register_food_stock(FoodStock("food_stock_01", Position(1, 1), 2))
+    world.register_agent(
+        AgentState("feeding_01", AgentRole.FEEDING, Position(1, 1))
+    )
     world.register_task(Task("task_001", TaskType.REFILL_BOWL, "bowl_01"))
 
+    food_access = process_action_request(
+        world,
+        ActionRequest(
+            task_id="task_001",
+            actor_id="feeding_01",
+            target_id="food-storage",
+            requested_action=ActionType.ACQUIRE_AREA,
+            destination=Position(1, 1),
+        ).to_json(),
+    )
     take_response = process_action_request(
         world,
         ActionRequest(
@@ -59,6 +72,25 @@ def test_feeding_actions_are_applied_through_json_contracts() -> None:
             target_id="food_stock_01",
             requested_action=ActionType.TAKE_FOOD,
             quantity=1,
+        ).to_json(),
+    )
+    process_action_request(
+        world,
+        ActionRequest(
+            task_id="task_001",
+            actor_id="feeding_01",
+            target_id="food-storage",
+            requested_action=ActionType.RELEASE_AREA,
+        ).to_json(),
+    )
+    cage_access = process_action_request(
+        world,
+        ActionRequest(
+            task_id="task_001",
+            actor_id="feeding_01",
+            target_id="cage-area",
+            requested_action=ActionType.ACQUIRE_AREA,
+            destination=Position(2, 4),
         ).to_json(),
     )
     fill_response = process_action_request(
@@ -72,7 +104,9 @@ def test_feeding_actions_are_applied_through_json_contracts() -> None:
         ).to_json(),
     )
 
+    assert food_access.accepted is True
     assert take_response.accepted is True
+    assert cage_access.accepted is True
     assert fill_response.accepted is True
     assert world.snapshot().food_stocks[0].quantity == 1
     assert world.snapshot().bowls[0].level == 1

@@ -22,7 +22,7 @@
     .request_medical_transport(TaskId, AnimalId, CageId, return).
 
 +animal_returned(TaskId, AnimalId, CageId) <-
-    .finish_medical_scenario(TaskId, completed).
+    .finish_medical_workflow(TaskId, completed).
 
 +medical_failed(TaskId) <-
-    .finish_medical_scenario(TaskId, failed).
+    .finish_medical_workflow(TaskId, failed).

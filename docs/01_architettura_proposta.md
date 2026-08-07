@@ -11,7 +11,7 @@ descritti in questo documento:
 - `agents/`: adattatore SPADE dell'`EnvironmentAgent`;
 - `visualization/`: proiezione immutabile per la futura vista 2D.
 
-Lo scenario si avvia con `python -m tamagotchi_wild`; i test si eseguono con
+La simulazione integrata si avvia con `python -m tamagotchi_wild`; i test si eseguono con
 `python -m pytest`. La GUI e i piani BDI dei tre ruoli appartengono agli
 incrementi successivi.
 
@@ -87,7 +87,7 @@ I test dovrebbero rispecchiare questi confini:
 tests/
 ├── unit/                       # dominio e validazione messaggi
 ├── integration/                # agenti, ambiente e XMPP
-└── scenarios/                  # flussi completi del CRAS
+└── scenarios/                  # test end-to-end della simulazione unica
 ```
 
 ## Modello minimo del dominio

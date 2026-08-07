@@ -1,116 +1,108 @@
 # Tamagotchi Wild Edition: Multi-Agent Care for Virtual Pets
 
-An educational multi-agent system for the automated management of a **Wildlife Rescue Center (CRAS)**, inspired by direct volunteering experience with ENPA.
+Sistema multi-agente didattico per la gestione automatizzata di un Centro di
+Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 
-> **Project status:** Phase 3 medical-care workflow implemented. Veterinary and Logistics complete the full cage-to-treatment-to-cage lifecycle through SPADE/XMPP and AgentSpeak plans. The feeding workflow remains available as a separate scenario.
+> **Stato:** alimentazione e cure mediche sono integrate in un'unica simulazione
+> SPADE-BDI. Il numero degli operatori si decide all'avvio, fino a un massimo di
+> 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
+> massimo 2 operatori contemporaneamente.
 
-## Overview
+## Agenti
 
-The project models a rescue center as a 2D grid divided into four operational areas:
+| Agente | Responsabilità |
+|---|---|
+| **Veterinary** | Coordina il ciclo medico, prende il medicinale e cura l'animale |
+| **Logistics** | Trasporta gli animali e coordina il rifornimento delle ciotole |
+| **Feeding** | Preleva il cibo e riempie le ciotole |
+| **Environment** | Mantiene lo stato autorevole, assegna atomicamente i task e controlla gli accessi alle aree |
 
-- **Cage Area** — houses rescued animals and their food bowls.
-- **Treatment Room** — supports medical examinations and treatments.
-- **Food Storage** — stores food collected by feeding staff.
-- **Medical Storage** — stores medicines collected by veterinarians.
-
-Animals are passive resources whose position and condition are changed by autonomous agents. The system is designed for multiple agents of each role and will be developed incrementally, starting with the feeding workflow.
-
-## Agent roles
-
-| Agent | Responsibility | Main interactions |
-|---|---|---|
-| **Veterinary Agent** | Evaluates and treats sick animals | Requests transport from Logistics; uses the Treatment Room and Medical Storage |
-| **Logistics Agent** | Moves animals and coordinates operational tasks | Transfers animals between cages and treatment; requests bowl refilling from Feeding |
-| **Feeding Agent** | Replenishes food bowls | Collects food from Food Storage and delivers it to the Cage Area |
-
-## Main workflows
-
-1. **Feeding:** Logistics detects an empty bowl and requests support from a Feeding Agent.
-2. **Medical care:** Veterinary requests an animal transfer, treats the patient, and requests transport back to its cage.
-3. **Concurrency control (advanced objective):** shared areas enforce capacity constraints, such as a maximum of two agents at the same time.
-
-## Technology direction
-
-- **Python** as the implementation language.
-- **SPADE** for agent lifecycle, asynchronous behaviours, and XMPP communication.
-- **SPADE-BDI** for symbolic Belief–Desire–Intention reasoning with AgentSpeak plans.
-- A Python 2D visualization library, such as **Pygame** or **Mesa**, to be selected during implementation.
-- A local XMPP setup so the complete project can be run and tested on the development PC.
-
-## Development roadmap
-
-1. ~~Define the architecture and model the 2D environment.~~ **Completed.**
-2. ~~Implement the feeding workflow to validate agent cooperation.~~ **Completed.**
-3. ~~Add animal transport and healthcare workflows.~~ **Completed.**
-4. Scale to multiple agents per role.
-5. Add concurrency policies for shared operational areas.
-
-## Repository structure
+La simulazione predefinita avvia contemporaneamente:
 
 ```text
-.
-├── docs/                    # Architecture, workflows, and project notes
-├── src/tamagotchi_wild/
-│   ├── agents/              # SPADE adapters
-│   ├── bdi/                 # AgentSpeak plans added with role workflows
-│   ├── domain/              # Pure domain entities and action contracts
-│   ├── environment/         # Authoritative grid state and atomic actions
-│   ├── messaging/           # Versioned JSON/FIPA contracts
-│   └── visualization/       # Read-only state projection for a future GUI
-├── tests/
-│   ├── unit/                # Domain, environment, messages and projection
-│   ├── integration/         # Boundaries between messages and environment
-│   └── scenarios/           # End-to-end workflows added incrementally
-├── pyproject.toml           # Package metadata and pinned direct dependencies
-├── .gitignore               # Local and generated files excluded from Git
-└── README.md                # Project overview
+2 Veterinary + 3 Logistics + 2 Feeding = 7 operatori
+1 Environment Agent aggiuntivo = 8 agenti SPADE attivi
 ```
 
-## Documentation
+Alimentazione e cure non sono modalità alternative: i due flussi partono nella
+stessa esecuzione e avanzano in modo concorrente tramite messaggi SPADE/XMPP.
 
-- [Where to start and how to organize the work](docs/00_da_dove_partire.md)
-- [Proposed architecture](docs/01_architettura_proposta.md)
-- [Incremental roadmap](docs/02_roadmap_incrementale.md)
-- [First increment: feeding workflow](docs/03_primo_incremento_alimentazione.md)
-- [Testing strategy](docs/04_strategia_test.md)
-- [Phase 3: medical-care workflow](docs/05_fase_3_cure_mediche.md)
-- [Agent architecture and workflows](docs/schemi_agenti_flussi.md)
-- [Project development guidelines](docs/linee_guida_progetto.md)
+## Concorrenza e assegnazione
 
-## Running the project
+- ogni fase di lavoro viene assegnata atomicamente a un solo agente;
+- gli altri agenti dello stesso ruolo rifiutano il duplicato senza eseguirlo;
+- per entrare in un'area operativa occorre un permesso dell'Environment;
+- il terzo agente attende e riprova finché uno dei due posti viene rilasciato;
+- il limite di 2 vale per Food Storage, Medical Storage, Cage Area e Treatment Room.
 
-From PowerShell, run the medical-care workflow:
+## Avvio
+
+Da PowerShell, nella cartella del progetto:
 
 ```powershell
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild
 ```
 
-Expected result:
+Output finale atteso:
 
 ```text
-PHASE 3 OK
-task=medical_001 status=completed
-animal=healthy position=2,4
-medicine=1->0
-messages=21 conversation-id=medical_001
+SIMULATION OK
+operators=7 veterinary=2 logistics=3 feeding=2
+feeding=completed medical=completed animal=healthy bowl=1/1
+max-room-occupancy=1/2
 ```
 
-Run all automated tests with:
+Il massimo osservato può essere `1` oppure `2`, in base all'ordine effettivo dei
+messaggi. Non può mai superare `2`.
+
+## Configurazione a runtime
+
+Esempio con un agente per ruolo:
+
+```powershell
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild `
+  --veterinary-agents 1 `
+  --logistics-agents 1 `
+  --feeding-agents 1
+```
+
+Ogni ruolo deve avere almeno un agente, perché entrambi i flussi sono sempre
+attivi. La somma dei tre valori deve essere al massimo 7. Per esempio,
+`2 + 4 + 2 = 8` viene rifiutato prima di avviare SPADE.
+
+Opzioni aggiuntive:
+
+```text
+--food N       quantità iniziale di cibo
+--medicine N   quantità iniziale di medicinali
+--timeout N    timeout in secondi
+--json         risultato finale in JSON
+```
+
+## Test
 
 ```powershell
 & .\.my_sdai\Scripts\python.exe -m pytest
 ```
 
-The command starts and stops SPADE's embedded XMPP server automatically. The local agent accounts are registered for the duration of the scenario; no Internet access or external credentials are required.
+I test verificano la configurazione fino a 7 operatori, l'assegnazione univoca
+dei task, il limite di 2 accessi e l'esecuzione end-to-end simultanea dei due
+flussi. Il server XMPP integrato viene avviato e arrestato automaticamente; non
+servono Internet né credenziali esterne.
 
-The feeding workflow remains executable with:
+## Struttura principale
 
-```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --scenario feeding
+```text
+src/tamagotchi_wild/
+├── agents/          # agenti SPADE-BDI e accesso concorrente alle aree
+├── bdi/             # piani AgentSpeak dei tre ruoli
+├── domain/          # entità e comandi del dominio
+├── environment/     # stato autorevole, claim atomici e capacità
+├── messaging/       # contratti JSON e metadata FIPA
+├── visualization/   # proiezione read-only per la futura GUI
+├── simulation.py    # unica simulazione integrata
+└── main.py          # parametri da terminale
 ```
 
-To verify the medical failure path without medicine:
-
-```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --medicine 0
-```
+La progettazione e le fasi incrementali sono descritte nella cartella
+[`docs`](docs/).

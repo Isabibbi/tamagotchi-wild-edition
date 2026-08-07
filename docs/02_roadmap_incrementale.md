@@ -10,8 +10,8 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 | 1 — Dominio e ambiente ✅ | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Completata in Preview 01 con test unitari e di integrazione |
 | 2 — Alimentazione ✅ | Completare la prima cooperazione | Logistics richiede e Feeding riempie una ciotola | Completata: scenario SPADE-BDI end-to-end verde |
 | 3 — Cure mediche ✅ | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Completata: ciclo SPADE-BDI e transizioni verificati |
-| 4 — Scalabilità | Avviare più agenti per ruolo | Un task viene eseguito una sola volta | Nessun task duplicato nei test concorrenti |
-| 5 — Concorrenza | Applicare capacità alle aree | Gli agenti attendono senza violare i limiti | Test su capacità, timeout e rilascio risorse |
+| 4 — Scalabilità ✅ | Avviare più agenti per ruolo | Fino a 7 operatori configurabili a runtime | Completata: claim atomici e nessun task duplicato |
+| 5 — Concorrenza ✅ | Applicare capacità alle aree | Gli agenti attendono senza violare i limiti | Completata: massimo 2 accessi, attesa e rilascio verificati |
 | 6 — Demo finale | Integrare GUI e osservabilità | Scenario completo visibile e riproducibile | Avvio documentato su PC pulito |
 
 ## Fase 0 — Spike tecnico
@@ -72,11 +72,16 @@ Sviluppare in due sotto-scenari:
 4. trasporto verso la gabbia;
 5. verifica dell'intero ciclo di vita.
 
-## Fasi avanzate
+## Fasi 4 e 5 — Scalabilità e concorrenza
 
-Scalabilità e concorrenza vanno aggiunte nell'ordine indicato: prima l'assegnazione univoca dei task, poi i limiti di capacità. Invertire l'ordine renderebbe difficile distinguere errori di coordinamento da errori di lock.
+**Stato: completate.** Esiste una sola simulazione: alimentazione e cure mediche
+partono contemporaneamente. Il numero di Veterinary, Logistics e Feeding è
+configurabile a runtime, con almeno un agente per ruolo e massimo 7 operatori
+totali. Environment è aggiuntivo e non viene contato.
 
-Per la demo finale preparare almeno tre scenari deterministici: alimentazione, cura completa e competizione per un'area a capacità limitata.
+I claim atomici garantiscono un solo esecutore per fase. Tutte le aree hanno
+capienza 2; un agente attende e riprova quando la stanza è piena. Il dettaglio è
+in [Scalabilità e concorrenza](06_scalabilita_e_concorrenza.md).
 
 ## Registro delle decisioni
 

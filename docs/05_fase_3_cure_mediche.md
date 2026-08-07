@@ -2,7 +2,7 @@
 
 ## Stato
 
-**Completata e testata.** Lo scenario usa Veterinary, Logistics ed Environment
+**Completata e testata.** Il workflow usa Veterinary, Logistics ed Environment
 su SPADE/XMPP con `conversation-id = medical_001` per l'intero ciclo.
 
 ## Stato iniziale e finale
@@ -50,14 +50,15 @@ Fallimento controllato senza medicinali:
 .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --medicine 0
 ```
 
-Test dedicati:
+Test dedicati e integrati:
 
 ```powershell
 .\.my_sdai\Scripts\python.exe -m pytest tests/unit/test_medical_actions.py
-.\.my_sdai\Scripts\python.exe -m pytest tests/scenarios/test_medical_workflow.py
+.\.my_sdai\Scripts\python.exe -m pytest tests/scenarios/test_integrated_simulation.py
 ```
 
 ## Fuori scope
 
-Non sono stati aggiunti più agenti dello stesso ruolo, lock di capacità,
-pathfinding o GUI. Questi aspetti appartengono alle fasi avanzate della roadmap.
+Questa fase era stata verificata inizialmente in isolamento. Dalle fasi 4 e 5 il
+flusso medico è eseguito insieme all'alimentazione, con più agenti per ruolo e
+accessi alle aree limitati a 2 operatori. Pathfinding e GUI restano fuori scope.

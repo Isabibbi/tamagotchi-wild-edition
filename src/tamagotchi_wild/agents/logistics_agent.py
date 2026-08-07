@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Sequence
 
 import agentspeak as asp
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 from spade.template import Template
 
 from tamagotchi_wild.agents.bdi_base import ProjectBDIAgent, term_text
+from tamagotchi_wild.agents.environment_actions import (
+    acquire_area,
+    claim_task,
+    environment_action,
+    release_area,
+)
 from tamagotchi_wild.domain import ActionType, Position
 from tamagotchi_wild.messaging import (
-    ActionRequest,
     ActionResponse,
     BowlEmptyPerception,
     ENVIRONMENT_ONTOLOGY,
@@ -28,7 +34,6 @@ from tamagotchi_wild.messaging import (
     TransportStatus,
     OUTBOUND,
     RETURN,
-    request_metadata,
     workflow_metadata,
 )
 from tamagotchi_wild.observability import ActivityLog, MessageTrace
@@ -51,12 +56,33 @@ class LogisticsAgent(ProjectBDIAgent):
             if perception.task_id in self.agent.seen_tasks:
                 return
             self.agent.seen_tasks.add(perception.task_id)
-            self.agent.bdi.set_belief(
-                "bowl_empty",
-                perception.task_id,
-                perception.cage_id,
-                perception.bowl_id,
+            template = Template()
+            template.set_metadata("ontology", ENVIRONMENT_ONTOLOGY)
+            template.set_metadata("language", MESSAGE_LANGUAGE)
+            template.set_metadata("conversation-id", perception.task_id)
+            self.agent.add_behaviour(
+                self.agent.ClaimFeedingCoordination(perception),
+                template,
             )
+
+    class ClaimFeedingCoordination(OneShotBehaviour):
+        def __init__(self, perception: BowlEmptyPerception) -> None:
+            super().__init__()
+            self.perception = perception
+
+        async def run(self) -> None:
+            result = await claim_task(
+                self,
+                self.perception.task_id,
+                "feeding_coordination",
+            )
+            if result.accepted:
+                self.agent.bdi.set_belief(
+                    "bowl_empty",
+                    self.perception.task_id,
+                    self.perception.cage_id,
+                    self.perception.bowl_id,
+                )
 
     class RequestFeeding(CyclicBehaviour):
         def __init__(self, task_id: str, cage_id: str, bowl_id: str) -> None:
@@ -72,20 +98,21 @@ class LogisticsAgent(ProjectBDIAgent):
                 return
             self.started = True
             request = FeedingTaskRequest(self.task_id, self.cage_id, self.bowl_id)
-            message = _message(
-                self.agent.feeding_jid,
-                request.to_json(),
-                workflow_metadata(FEEDING_ONTOLOGY, "request", self.task_id),
-                self.task_id,
-            )
-            await self.send(message)
-            self.agent.message_trace.record(
-                self.agent.agent_label,
-                self.agent.feeding_jid.split("@", 1)[0],
-                FEEDING_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
+            for feeding_jid in self.agent.feeding_jids:
+                message = _message(
+                    feeding_jid,
+                    request.to_json(),
+                    workflow_metadata(FEEDING_ONTOLOGY, "request", self.task_id),
+                    self.task_id,
+                )
+                await self.send(message)
+                self.agent.message_trace.record(
+                    self.agent.agent_label,
+                    feeding_jid.split("@", 1)[0],
+                    FEEDING_ONTOLOGY,
+                    "request",
+                    self.task_id,
+                )
             self.agent.activity_log.record(
                 self.task_id,
                 self.agent.agent_label,
@@ -93,27 +120,13 @@ class LogisticsAgent(ProjectBDIAgent):
                 cage=self.cage_id,
             )
 
-            accepted = await self.receive(timeout=self.agent.timeout_seconds)
-            if accepted is None:
+            winner = await self._wait_for_winner()
+            if winner is None:
                 self._set_failed("timeout waiting for task acceptance")
                 self.kill()
                 return
-            try:
-                self.agent._validate_conversation(accepted, self.task_id)
-                status = FeedingStatus.from_json(accepted.body)
-                if (
-                    accepted.get_metadata("performative") != "agree"
-                    or status.status != "accepted"
-                ):
-                    self._set_failed(status.reason or "feeding task refused")
-                    self.kill()
-                    return
-            except MessageContractError as exc:
-                self._set_failed(str(exc))
-                self.kill()
-                return
 
-            completed = await self.receive(timeout=self.agent.timeout_seconds)
+            completed = await self._wait_for_completion(winner)
             if completed is None:
                 self._set_failed("timeout waiting for task completion")
                 self.kill()
@@ -131,6 +144,44 @@ class LogisticsAgent(ProjectBDIAgent):
             except MessageContractError as exc:
                 self._set_failed(str(exc))
             self.kill()
+
+        async def _wait_for_winner(self) -> str | None:
+            deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
+            refusals: set[str] = set()
+            while len(refusals) < len(self.agent.feeding_jids):
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return None
+                message = await self.receive(timeout=remaining)
+                if message is None:
+                    return None
+                try:
+                    self.agent._validate_conversation(message, self.task_id)
+                    status = FeedingStatus.from_json(message.body)
+                except MessageContractError:
+                    continue
+                sender = str(message.sender).split("/", 1)[0]
+                if (
+                    message.get_metadata("performative") == "agree"
+                    and status.status == "accepted"
+                ):
+                    return sender
+                if message.get_metadata("performative") == "refuse":
+                    refusals.add(sender)
+            return None
+
+        async def _wait_for_completion(self, winner: str) -> Message | None:
+            deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
+            while True:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return None
+                message = await self.receive(timeout=remaining)
+                if message is None:
+                    return None
+                sender = str(message.sender).split("/", 1)[0]
+                if sender == winner:
+                    return message
 
         def _set_failed(self, reason: str) -> None:
             self.agent.failure_reasons[self.task_id] = reason
@@ -151,12 +202,59 @@ class LogisticsAgent(ProjectBDIAgent):
                 return
             self.agent.seen_transport_requests.add(key)
             self.agent.transport_requesters[key] = str(message.sender)
-            self.agent.bdi.set_belief(
-                "transport_requested",
-                request.task_id,
-                request.animal_id,
-                request.cage_id,
-                request.direction,
+            template = Template()
+            template.set_metadata("ontology", ENVIRONMENT_ONTOLOGY)
+            template.set_metadata("language", MESSAGE_LANGUAGE)
+            template.set_metadata("conversation-id", request.task_id)
+            self.agent.add_behaviour(
+                self.agent.ClaimTransport(request),
+                template,
+            )
+
+    class ClaimTransport(OneShotBehaviour):
+        def __init__(self, request: TransportRequest) -> None:
+            super().__init__()
+            self.request = request
+
+        async def run(self) -> None:
+            phase = f"transport_{self.request.direction}"
+            result = await claim_task(self, self.request.task_id, phase)
+            if result.accepted:
+                self.agent.bdi.set_belief(
+                    "transport_requested",
+                    self.request.task_id,
+                    self.request.animal_id,
+                    self.request.cage_id,
+                    self.request.direction,
+                )
+                return
+
+            requester = self.agent.transport_requesters[
+                (self.request.task_id, self.request.direction)
+            ]
+            status = TransportStatus(
+                self.request.task_id,
+                self.request.animal_id,
+                "refused",
+                result.reason,
+            )
+            message = _message(
+                requester,
+                status.to_json(),
+                workflow_metadata(
+                    TRANSPORT_ONTOLOGY,
+                    "refuse",
+                    self.request.task_id,
+                ),
+                self.request.task_id,
+            )
+            await self.send(message)
+            self.agent.message_trace.record(
+                self.agent.agent_label,
+                requester.split("@", 1)[0],
+                TRANSPORT_ONTOLOGY,
+                "refuse",
+                self.request.task_id,
             )
 
     class ExecuteTransport(CyclicBehaviour):
@@ -192,19 +290,44 @@ class LogisticsAgent(ProjectBDIAgent):
 
             if self.direction == OUTBOUND:
                 actions = (
-                    (ActionType.PICKUP_SICK_ANIMAL, None),
-                    (ActionType.DELIVER_TO_TREATMENT, self.agent.treatment_position),
+                    (
+                        self.agent.cage_area_id,
+                        self.agent.cage_position,
+                        ActionType.PICKUP_SICK_ANIMAL,
+                        None,
+                    ),
+                    (
+                        self.agent.treatment_area_id,
+                        self.agent.treatment_position,
+                        ActionType.DELIVER_TO_TREATMENT,
+                        self.agent.treatment_position,
+                    ),
                 )
                 final_status = "patient_ready"
             else:
                 actions = (
-                    (ActionType.PICKUP_TREATED_ANIMAL, None),
-                    (ActionType.RETURN_ANIMAL_TO_CAGE, self.agent.cage_position),
+                    (
+                        self.agent.treatment_area_id,
+                        self.agent.treatment_position,
+                        ActionType.PICKUP_TREATED_ANIMAL,
+                        None,
+                    ),
+                    (
+                        self.agent.cage_area_id,
+                        self.agent.cage_position,
+                        ActionType.RETURN_ANIMAL_TO_CAGE,
+                        self.agent.cage_position,
+                    ),
                 )
                 final_status = "returned"
 
-            for action, destination in actions:
-                result = await self._environment_action(action, destination)
+            for area_id, access_position, action, destination in actions:
+                result = await self._perform_in_area(
+                    area_id,
+                    access_position,
+                    action,
+                    destination,
+                )
                 if not result.accepted:
                     await self._send_status(
                         requester,
@@ -228,48 +351,30 @@ class LogisticsAgent(ProjectBDIAgent):
             )
             self.kill()
 
-        async def _environment_action(
+        async def _perform_in_area(
             self,
+            area_id: str,
+            access_position: Position,
             action: ActionType,
             destination: Position | None,
         ) -> ActionResponse:
-            request = ActionRequest(
-                task_id=self.task_id,
-                actor_id=self.agent.agent_label,
-                target_id=self.animal_id,
-                requested_action=action,
+            access = await acquire_area(
+                self,
+                self.task_id,
+                area_id,
+                access_position,
+            )
+            if not access.accepted:
+                return access
+            result = await environment_action(
+                self,
+                self.task_id,
+                action,
+                self.animal_id,
                 destination=destination,
             )
-            message = _message(
-                self.agent.environment_jid,
-                request.to_json(),
-                request_metadata(self.task_id),
-                self.task_id,
-            )
-            await self.send(message)
-            self.agent.message_trace.record(
-                self.agent.agent_label,
-                self.agent.environment_jid.split("@", 1)[0],
-                ENVIRONMENT_ONTOLOGY,
-                "request",
-                self.task_id,
-            )
-            response = await self.receive(timeout=self.agent.timeout_seconds)
-            if response is None:
-                return ActionResponse(
-                    self.task_id,
-                    False,
-                    f"timeout waiting for {action.value}",
-                    None,
-                )
-            try:
-                self.agent._validate_conversation(response, self.task_id)
-                parsed = ActionResponse.from_json(response.body)
-                if parsed.task_id != self.task_id:
-                    raise MessageContractError("response task_id does not match")
-                return parsed
-            except MessageContractError as exc:
-                return ActionResponse(self.task_id, False, str(exc), None)
+            released = await release_area(self, self.task_id, area_id)
+            return result if released.accepted else released
 
         async def _send_status(
             self,
@@ -307,7 +412,7 @@ class LogisticsAgent(ProjectBDIAgent):
         self,
         jid: str,
         password: str,
-        feeding_jid: str,
+        feeding_jid: str | Sequence[str],
         activity_log: ActivityLog,
         message_trace: MessageTrace,
         timeout_seconds: float = 10.0,
@@ -315,8 +420,15 @@ class LogisticsAgent(ProjectBDIAgent):
         environment_jid: str = "environment@localhost",
         cage_position: Position = Position(2, 4),
         treatment_position: Position = Position(9, 4),
+        cage_area_id: str = "cage-area",
+        treatment_area_id: str = "treatment-room",
     ) -> None:
-        self.feeding_jid = feeding_jid
+        self.feeding_jids = (
+            (feeding_jid,) if isinstance(feeding_jid, str) else tuple(feeding_jid)
+        )
+        if not self.feeding_jids:
+            raise ValueError("at least one Feeding Agent JID is required")
+        self.feeding_jid = self.feeding_jids[0]
         self.activity_log = activity_log
         self.message_trace = message_trace
         self.timeout_seconds = timeout_seconds
@@ -324,11 +436,13 @@ class LogisticsAgent(ProjectBDIAgent):
         self.environment_jid = environment_jid
         self.cage_position = cage_position
         self.treatment_position = treatment_position
+        self.cage_area_id = cage_area_id
+        self.treatment_area_id = treatment_area_id
         self.seen_tasks: set[str] = set()
         self.failure_reasons: dict[str, str] = {}
-        self.scenario_status: str | None = None
-        self.scenario_task_id: str | None = None
-        self.scenario_done = asyncio.Event()
+        self.workflow_status: str | None = None
+        self.workflow_task_id: str | None = None
+        self.workflow_done = asyncio.Event()
         self.seen_transport_requests: set[tuple[str, str]] = set()
         self.transport_requesters: dict[tuple[str, str], str] = {}
         self.transport_outcomes: dict[tuple[str, str], str] = {}
@@ -365,13 +479,13 @@ class LogisticsAgent(ProjectBDIAgent):
             )
             yield
 
-        @actions.add(".finish_feeding_scenario", 2)
-        def finish_feeding_scenario(agent, term, intention):
+        @actions.add(".finish_feeding_workflow", 2)
+        def finish_feeding_workflow(agent, term, intention):
             task_id = term_text(asp.grounded(term.args[0], intention.scope))
             status = term_text(asp.grounded(term.args[1], intention.scope))
-            self.scenario_task_id = task_id
-            self.scenario_status = status
-            self.scenario_done.set()
+            self.workflow_task_id = task_id
+            self.workflow_status = status
+            self.workflow_done.set()
             yield
 
         @actions.add(".execute_transport", 4)
