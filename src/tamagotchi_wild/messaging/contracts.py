@@ -32,6 +32,7 @@ class ActionRequest:
     requested_action: ActionType
     destination: Position | None = None
     health: HealthStatus | None = None
+    quantity: int | None = None
     schema_version: int = SCHEMA_VERSION
 
     def to_command(self) -> ActionCommand:
@@ -41,6 +42,8 @@ class ActionRequest:
             target_id=self.target_id,
             destination=self.destination,
             health=self.health,
+            task_id=self.task_id,
+            quantity=self.quantity,
         )
 
     def to_json(self) -> str:
@@ -58,6 +61,8 @@ class ActionRequest:
             }
         if self.health is not None:
             payload["health"] = self.health.value
+        if self.quantity is not None:
+            payload["quantity"] = self.quantity
         return json.dumps(payload, sort_keys=True)
 
     @classmethod
@@ -79,6 +84,7 @@ class ActionRequest:
         action = _enum_value(ActionType, payload.get("requested_action"), "requested_action")
         destination = _optional_position(payload.get("destination"))
         health = _optional_enum(HealthStatus, payload.get("health"), "health")
+        quantity = _optional_positive_integer(payload.get("quantity"), "quantity")
         return cls(
             task_id=task_id,
             actor_id=actor_id,
@@ -86,6 +92,7 @@ class ActionRequest:
             requested_action=action,
             destination=destination,
             health=health,
+            quantity=quantity,
         )
 
 
@@ -117,6 +124,26 @@ class ActionResponse:
             },
             sort_keys=True,
         )
+
+    @classmethod
+    def from_json(cls, body: str) -> ActionResponse:
+        try:
+            payload = json.loads(body)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise MessageContractError("response body must be valid JSON") from exc
+        if not isinstance(payload, dict):
+            raise MessageContractError("response body must be a JSON object")
+        if payload.get("schema_version") != SCHEMA_VERSION:
+            raise MessageContractError("unsupported response schema_version")
+        task_id = _required_text(payload, "task_id")
+        accepted = payload.get("accepted")
+        if type(accepted) is not bool:
+            raise MessageContractError("accepted must be a boolean")
+        reason = _required_text(payload, "reason")
+        event_sequence = payload.get("event_sequence")
+        if event_sequence is not None and type(event_sequence) is not int:
+            raise MessageContractError("event_sequence must be an integer or null")
+        return cls(task_id, accepted, reason, event_sequence)
 
 
 def request_metadata(task_id: str) -> dict[str, str]:
@@ -158,3 +185,11 @@ def _optional_position(value: Any) -> Position | None:
     if type(x) is not int or type(y) is not int:
         raise MessageContractError("destination x and y must be integers")
     return Position(x, y)
+
+
+def _optional_positive_integer(value: Any, field: str) -> int | None:
+    if value is None:
+        return None
+    if type(value) is not int or value < 1:
+        raise MessageContractError(f"{field} must be a positive integer")
+    return value

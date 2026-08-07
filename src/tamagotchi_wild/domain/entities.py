@@ -104,6 +104,18 @@ class Bowl:
 
 
 @dataclass(frozen=True, slots=True)
+class FoodStock:
+    id: str
+    position: Position
+    quantity: int
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.id, "food stock id")
+        if self.quantity < 0:
+            raise ValueError("food quantity must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
 class AgentState:
     id: str
     role: AgentRole

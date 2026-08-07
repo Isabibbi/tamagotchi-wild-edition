@@ -13,9 +13,12 @@ from tamagotchi_wild.domain import (
     Animal,
     Area,
     Bowl,
+    FoodStock,
     HealthStatus,
     Position,
     Task,
+    TaskStatus,
+    TaskType,
 )
 from tamagotchi_wild.environment.errors import (
     DuplicateEntityError,
@@ -34,6 +37,8 @@ class EnvironmentEvent:
     origin: Position | None
     destination: Position | None
     detail: str
+    task_id: str = ""
+    quantity: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +48,7 @@ class WorldSnapshot:
     areas: tuple[Area, ...]
     animals: tuple[Animal, ...]
     bowls: tuple[Bowl, ...]
+    food_stocks: tuple[FoodStock, ...]
     agents: tuple[AgentState, ...]
     tasks: tuple[Task, ...]
     event_count: int
@@ -63,10 +69,12 @@ class EnvironmentState:
         self._areas = {area.id: area for area in area_items}
         self._animals: dict[str, Animal] = {}
         self._bowls: dict[str, Bowl] = {}
+        self._food_stocks: dict[str, FoodStock] = {}
         self._agents: dict[str, AgentState] = {}
         self._tasks: dict[str, Task] = {}
         self._entity_ids: set[str] = set(self._areas)
         self._events: list[EnvironmentEvent] = []
+        self._applied_task_actions: dict[tuple[str, ActionType], ActionResult] = {}
         self._validate_areas()
 
     @property
@@ -85,6 +93,14 @@ class EnvironmentState:
     def register_bowl(self, bowl: Bowl) -> None:
         self._register(bowl.id, bowl.position, self._bowls, bowl)
 
+    def register_food_stock(self, food_stock: FoodStock) -> None:
+        self._register(
+            food_stock.id,
+            food_stock.position,
+            self._food_stocks,
+            food_stock,
+        )
+
     def register_agent(self, agent: AgentState) -> None:
         self._register(agent.id, agent.position, self._agents, agent)
 
@@ -97,17 +113,30 @@ class EnvironmentState:
     def apply(self, command: ActionCommand) -> ActionResult:
         """Validate and apply one command; rejected commands never change state."""
 
+        idempotency_key = self._idempotency_key(command)
+        if idempotency_key is not None:
+            previous = self._applied_task_actions.get(idempotency_key)
+            if previous is not None:
+                return ActionResult(
+                    accepted=True,
+                    reason="already_applied",
+                    event_sequence=previous.event_sequence,
+                )
+
         try:
             event = self._apply_validated(command)
         except EnvironmentError as exc:
             return ActionResult(accepted=False, reason=str(exc))
 
         self._events.append(event)
-        return ActionResult(
+        result = ActionResult(
             accepted=True,
             reason="accepted",
             event_sequence=event.sequence,
         )
+        if idempotency_key is not None:
+            self._applied_task_actions[idempotency_key] = result
+        return result
 
     def snapshot(self) -> WorldSnapshot:
         """Return an immutable projection suitable for agents, tests and GUI."""
@@ -118,6 +147,9 @@ class EnvironmentState:
             areas=tuple(sorted(self._areas.values(), key=lambda item: item.id)),
             animals=tuple(sorted(self._animals.values(), key=lambda item: item.id)),
             bowls=tuple(sorted(self._bowls.values(), key=lambda item: item.id)),
+            food_stocks=tuple(
+                sorted(self._food_stocks.values(), key=lambda item: item.id)
+            ),
             agents=tuple(sorted(self._agents.values(), key=lambda item: item.id)),
             tasks=tuple(sorted(self._tasks.values(), key=lambda item: item.id)),
             event_count=len(self._events),
@@ -146,6 +178,15 @@ class EnvironmentState:
         elif command.action is ActionType.UPDATE_ANIMAL_HEALTH:
             origin = self._update_animal_health(command.target_id, command.health)
             detail = f"health changed to {command.health.value}"
+        elif command.action is ActionType.TAKE_FOOD:
+            origin = self._take_food(command)
+            detail = "food taken"
+        elif command.action is ActionType.FILL_BOWL:
+            origin = self._fill_bowl(command)
+            detail = "bowl filled"
+        elif command.action is ActionType.FAIL_TASK:
+            origin = self._fail_task(command)
+            detail = "task rejected"
         else:
             raise InvalidActionError(f"unsupported action: {command.action}")
 
@@ -157,7 +198,91 @@ class EnvironmentState:
             origin=origin,
             destination=command.destination,
             detail=detail,
+            task_id=command.task_id,
+            quantity=command.quantity,
         )
+
+    def _take_food(self, command: ActionCommand) -> Position:
+        task = self._feeding_task(command.task_id)
+        food_stock = self._food_stocks.get(command.target_id)
+        if food_stock is None:
+            raise UnknownEntityError(f"unknown food stock: {command.target_id}")
+        quantity = self._feeding_quantity(command.quantity)
+        if food_stock.quantity < quantity:
+            raise InvalidActionError("not enough food")
+        if task.status is TaskStatus.COMPLETED:
+            raise InvalidActionError(f"task {task.id} is already completed")
+
+        self._food_stocks[food_stock.id] = replace(
+            food_stock,
+            quantity=food_stock.quantity - quantity,
+        )
+        self._tasks[task.id] = replace(
+            task,
+            status=TaskStatus.IN_PROGRESS,
+            assigned_to=command.actor_id,
+        )
+        return food_stock.position
+
+    def _fill_bowl(self, command: ActionCommand) -> Position:
+        task = self._feeding_task(command.task_id)
+        bowl = self._bowls.get(command.target_id)
+        if bowl is None:
+            raise UnknownEntityError(f"unknown bowl: {command.target_id}")
+        if task.target_id != bowl.id:
+            raise InvalidActionError(
+                f"task {task.id} targets {task.target_id}, not {bowl.id}"
+            )
+        if (task.id, ActionType.TAKE_FOOD) not in self._applied_task_actions:
+            raise InvalidActionError(f"food has not been taken for task {task.id}")
+        quantity = self._feeding_quantity(command.quantity)
+        if bowl.level + quantity > bowl.capacity:
+            raise InvalidActionError(f"bowl {bowl.id} does not have enough capacity")
+
+        self._bowls[bowl.id] = replace(bowl, level=bowl.level + quantity)
+        self._tasks[task.id] = replace(task, status=TaskStatus.COMPLETED)
+        return bowl.position
+
+    def _feeding_task(self, task_id: str) -> Task:
+        if not task_id.strip():
+            raise InvalidActionError("task_id is required for feeding actions")
+        task = self._tasks.get(task_id)
+        if task is None:
+            raise UnknownEntityError(f"unknown task: {task_id}")
+        if task.kind is not TaskType.REFILL_BOWL:
+            raise InvalidActionError(f"task {task_id} is not a feeding task")
+        return task
+
+    def _fail_task(self, command: ActionCommand) -> None:
+        task = self._feeding_task(command.task_id)
+        if command.target_id != task.id:
+            raise InvalidActionError(
+                f"fail_task target must be task {task.id}, not {command.target_id}"
+            )
+        if task.status is TaskStatus.COMPLETED:
+            raise InvalidActionError(f"completed task {task.id} cannot be rejected")
+        self._tasks[task.id] = replace(
+            task,
+            status=TaskStatus.REJECTED,
+            assigned_to=command.actor_id,
+        )
+        return None
+
+    @staticmethod
+    def _feeding_quantity(quantity: int | None) -> int:
+        if type(quantity) is not int or quantity < 1:
+            raise InvalidActionError("quantity must be a positive integer")
+        return quantity
+
+    @staticmethod
+    def _idempotency_key(
+        command: ActionCommand,
+    ) -> tuple[str, ActionType] | None:
+        if command.action not in (ActionType.TAKE_FOOD, ActionType.FILL_BOWL):
+            return None
+        if not command.task_id.strip():
+            return None
+        return command.task_id, command.action
 
     def _move_entity(
         self,

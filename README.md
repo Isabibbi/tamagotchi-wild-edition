@@ -2,7 +2,7 @@
 
 An educational multi-agent system for the automated management of a **Wildlife Rescue Center (CRAS)**, inspired by direct volunteering experience with ENPA.
 
-> **Project status:** Preview 01 architecture implemented. The repository now contains the domain model, authoritative grid environment, versioned message contracts, SPADE environment adapter, read-only visualization projection, and automated tests. Operational role workflows and the GUI are intentionally deferred.
+> **Project status:** Phase 2 feeding workflow implemented. Logistics and Feeding are SPADE-BDI agents with AgentSpeak plans; they cooperate through the embedded XMPP server and update the authoritative environment through correlated FIPA/JSON messages.
 
 ## Overview
 
@@ -40,7 +40,7 @@ Animals are passive resources whose position and condition are changed by autono
 ## Development roadmap
 
 1. ~~Define the architecture and model the 2D environment.~~ **Completed.**
-2. Implement the feeding workflow to validate agent cooperation.
+2. ~~Implement the feeding workflow to validate agent cooperation.~~ **Completed.**
 3. Add animal transport and healthcare workflows.
 4. Scale to multiple agents per role.
 5. Add concurrency policies for shared operational areas.
@@ -78,7 +78,7 @@ Animals are passive resources whose position and condition are changed by autono
 
 ## Running the project
 
-From PowerShell, install the project in the existing local environment and run Preview 01:
+From PowerShell, install the project in the existing local environment and run the feeding workflow:
 
 ```powershell
 py -3.12 -m venv .my_sdai
@@ -89,10 +89,15 @@ py -3.12 -m venv .my_sdai
 Expected result:
 
 ```text
-PREVIEW 01 OK
-grid=12x8
-areas=4 agents=3
-animals=1 bowls=1
+task=task_001 agent=logistics_01 event=feeding_requested cage=cage_01
+task=task_001 agent=feeding_01 event=task_accepted
+task=task_001 agent=environment event=food_taken quantity=1
+task=task_001 agent=environment event=bowl_filled cage=cage_01
+task=task_001 agent=feeding_01 event=task_completed
+PHASE 2 OK
+task=task_001 status=completed
+food=2->1 bowl=1/1
+messages=8 conversation-id=task_001
 ```
 
 Run all automated tests with:
@@ -101,4 +106,10 @@ Run all automated tests with:
 & .\.my_sdai\Scripts\python.exe -m pytest
 ```
 
-The preview is local and deterministic. It does not start XMPP, open a GUI, require Internet access, or require agent credentials. Those runtime concerns will be introduced with the operational agent workflows.
+The command starts and stops SPADE's embedded XMPP server automatically. The local agent accounts are registered for the duration of the scenario; no Internet access or external credentials are required.
+
+To verify the explicit failure path with an empty Food Storage:
+
+```powershell
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --food 0
+```

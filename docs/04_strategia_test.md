@@ -26,9 +26,9 @@ Ogni fase deve poter essere verificata automaticamente sul PC di sviluppo. La GU
 
 | Scenario | Stato iniziale | Risultato atteso |
 |---|---|---|
-| Alimentazione riuscita | Ciotola vuota, cibo presente | Ciotola piena, scorta decrementata |
-| Magazzino vuoto | Ciotola vuota, cibo assente | Task fallito, nessuna modifica incoerente |
-| Richiesta duplicata | Stesso `task_id` inviato due volte | Una sola esecuzione |
+| Alimentazione riuscita ✅ | Ciotola vuota, cibo presente | Verificato: ciotola piena, scorta decrementata |
+| Magazzino vuoto ✅ | Ciotola vuota, cibo assente | Verificato: task `rejected`, nessuna modifica incoerente |
+| Richiesta duplicata ✅ | Stesso `task_id` inviato due volte | Verificato: una sola esecuzione |
 | Cura completa | Animale malato in gabbia | Animale curato e riportato in gabbia |
 | Area piena | Capacità raggiunta | Agente in attesa o rifiuto controllato |
 
@@ -60,13 +60,13 @@ Per evitare test instabili, non basare l'asserzione sull'ordine preciso degli ag
 
 ## Comandi locali attesi
 
-Quando inizierà il codice, il repository dovrebbe offrire comandi equivalenti a:
+Il repository offre questi comandi:
 
 ```powershell
-python -m pytest tests/unit
-python -m pytest tests/integration
-python -m pytest tests/scenarios
-python -m tamagotchi_wild
+.\.my_sdai\Scripts\python.exe -m pytest tests/unit
+.\.my_sdai\Scripts\python.exe -m pytest tests/integration
+.\.my_sdai\Scripts\python.exe -m pytest tests/scenarios
+.\.my_sdai\Scripts\python.exe -m tamagotchi_wild
 ```
 
 I comandi definitivi dovranno essere riportati nel README e provati da una nuova shell, senza dipendere dallo stato dell'IDE.
@@ -78,4 +78,3 @@ I comandi definitivi dovranno essere riportati nel README e provati da una nuova
 - i test non dipendono da Internet;
 - le credenziali non sono salvate nel repository;
 - un fallimento indica scenario, task e causa leggibile.
-

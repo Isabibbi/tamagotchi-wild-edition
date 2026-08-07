@@ -4,14 +4,13 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 
 ## Stato di avanzamento
 
-**Preview 01 completata:** l'architettura descritta in
-[`01_architettura_proposta.md`](01_architettura_proposta.md) è stata tradotta in
-codice eseguibile e testato. Lo spike temporaneo della fase 00, inclusi i due
-piani `.asl` dimostrativi, è stato rimosso dal codice corrente.
+**Fase 2 completata:** il workflow di alimentazione usa Logistics e Feeding come
+agenti SPADE-BDI reali, scambia messaggi sul server XMPP integrato e modifica
+l'ambiente centralizzato. I piani `.asl` attuali appartengono ai ruoli del CRAS,
+non sono più file dimostrativi.
 
-Il prossimo incremento è il workflow di alimentazione. Questo file rimane come
-punto di ingresso alla pianificazione, non rappresenta più l'implementazione
-attiva.
+Il prossimo incremento è il workflow di cure mediche. Questo file rimane come
+punto di ingresso alla pianificazione.
 
 ## Decisioni consigliate subito
 
@@ -29,7 +28,7 @@ Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambia
 
 1. ~~Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.~~ **Validazione conclusa; codice temporaneo rimosso.**
 2. ~~Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.~~ **Completato in Preview 01.**
-3. Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.
+3. ~~Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.~~ **Completato nella Fase 2.**
 4. Aggiungere la visualizzazione come proiezione dello stato dell'ambiente.
 5. Procedere con cure mediche, più agenti e controllo della concorrenza.
 

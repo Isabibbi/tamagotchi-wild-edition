@@ -8,6 +8,14 @@ from tamagotchi_wild.messaging.contracts import (
     MessageContractError,
     request_metadata,
 )
+from tamagotchi_wild.messaging.feeding import (
+    BowlEmptyPerception,
+    FEEDING_ONTOLOGY,
+    FeedingStatus,
+    FeedingTaskRequest,
+    PERCEPTION_ONTOLOGY,
+    workflow_metadata,
+)
 
 __all__ = [
     "ActionRequest",
@@ -16,4 +24,10 @@ __all__ = [
     "MESSAGE_LANGUAGE",
     "MessageContractError",
     "request_metadata",
+    "BowlEmptyPerception",
+    "FEEDING_ONTOLOGY",
+    "FeedingStatus",
+    "FeedingTaskRequest",
+    "PERCEPTION_ONTOLOGY",
+    "workflow_metadata",
 ]
