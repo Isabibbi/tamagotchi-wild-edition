@@ -198,31 +198,35 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def print_result(result: FeedingScenarioResult, as_json: bool = False) -> None:
+    if as_json:
+        print(json.dumps(asdict(result), sort_keys=True))
+        return
+    for line in result.logs:
+        print(line)
+    if result.success:
+        print("PHASE 2 OK")
+        print(f"task={result.task_id} status={result.task_status}")
+        print(
+            f"food={result.food_before}->{result.food_after} "
+            f"bowl={result.bowl_level}/{result.bowl_capacity}"
+        )
+        print(
+            f"messages={result.message_count} "
+            f"conversation-id={result.conversation_ids[0]}"
+        )
+    else:
+        print("PHASE 2 FAILED")
+        print(f"task={result.task_id} status={result.scenario_status}")
+        print(f"reason={result.error}")
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.food < 0:
         raise SystemExit("--food must not be negative")
     result = run_feeding_scenario(args.food, args.timeout)
-    if args.as_json:
-        print(json.dumps(asdict(result), sort_keys=True))
-    else:
-        for line in result.logs:
-            print(line)
-        if result.success:
-            print("PHASE 2 OK")
-            print(f"task={result.task_id} status={result.task_status}")
-            print(
-                f"food={result.food_before}->{result.food_after} "
-                f"bowl={result.bowl_level}/{result.bowl_capacity}"
-            )
-            print(
-                f"messages={result.message_count} "
-                f"conversation-id={result.conversation_ids[0]}"
-            )
-        else:
-            print("PHASE 2 FAILED")
-            print(f"task={result.task_id} status={result.scenario_status}")
-            print(f"reason={result.error}")
+    print_result(result, args.as_json)
     return 0 if result.success else 1
 
 

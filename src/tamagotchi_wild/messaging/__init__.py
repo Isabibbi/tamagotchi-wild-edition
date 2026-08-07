@@ -16,6 +16,14 @@ from tamagotchi_wild.messaging.feeding import (
     PERCEPTION_ONTOLOGY,
     workflow_metadata,
 )
+from tamagotchi_wild.messaging.medical import (
+    OUTBOUND,
+    RETURN,
+    SickAnimalPerception,
+    TRANSPORT_ONTOLOGY,
+    TransportRequest,
+    TransportStatus,
+)
 
 __all__ = [
     "ActionRequest",
@@ -30,4 +38,10 @@ __all__ = [
     "FeedingTaskRequest",
     "PERCEPTION_ONTOLOGY",
     "workflow_metadata",
+    "OUTBOUND",
+    "RETURN",
+    "SickAnimalPerception",
+    "TRANSPORT_ONTOLOGY",
+    "TransportRequest",
+    "TransportStatus",
 ]

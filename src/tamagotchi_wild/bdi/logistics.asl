@@ -14,3 +14,9 @@
 
 +feeding_failed(TaskId) <-
     .finish_feeding_scenario(TaskId, failed).
+
++transport_requested(TaskId, AnimalId, CageId, outbound) <-
+    .execute_transport(TaskId, AnimalId, CageId, outbound).
+
++transport_requested(TaskId, AnimalId, CageId, return) <-
+    .execute_transport(TaskId, AnimalId, CageId, return).

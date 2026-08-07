@@ -4,13 +4,12 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 
 ## Stato di avanzamento
 
-**Fase 2 completata:** il workflow di alimentazione usa Logistics e Feeding come
-agenti SPADE-BDI reali, scambia messaggi sul server XMPP integrato e modifica
-l'ambiente centralizzato. I piani `.asl` attuali appartengono ai ruoli del CRAS,
-non sono più file dimostrativi.
+**Fase 3 completata:** Veterinary e Logistics eseguono il ciclo completo di
+trasporto, cura e rientro tramite agenti SPADE-BDI reali. L'animale è una risorsa
+passiva e tutte le transizioni sono applicate dall'ambiente centralizzato.
 
-Il prossimo incremento è il workflow di cure mediche. Questo file rimane come
-punto di ingresso alla pianificazione.
+Le fasi core richieste sono complete. Scalabilità, concorrenza e GUI restano
+incrementi avanzati opzionali nella roadmap.
 
 ## Decisioni consigliate subito
 
@@ -29,8 +28,8 @@ Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambia
 1. ~~Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.~~ **Validazione conclusa; codice temporaneo rimosso.**
 2. ~~Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.~~ **Completato in Preview 01.**
 3. ~~Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.~~ **Completato nella Fase 2.**
-4. Aggiungere la visualizzazione come proiezione dello stato dell'ambiente.
-5. Procedere con cure mediche, più agenti e controllo della concorrenza.
+4. ~~Implementare trasporto, cura e rientro dell'animale.~~ **Completato nella Fase 3.**
+5. Aggiungere visualizzazione, più agenti e controllo della concorrenza come obiettivi avanzati.
 
 ## Primo risultato da ottenere
 

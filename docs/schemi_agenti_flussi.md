@@ -1,5 +1,20 @@
 # Schemi e Flussi: Wildlife Rescue Center (CRAS)
 
+## Stato di implementazione
+
+Lo scenario **Cure Mediche** descritto in questo documento è implementato e
+testato. Veterinary e Logistics usano piani AgentSpeak reali, mentre Environment
+valida ogni transizione dell'animale e conserva lo stato autorevole.
+
+Esecuzione:
+
+```powershell
+.\.my_sdai\Scripts\python.exe -m tamagotchi_wild
+```
+
+Risultato verificato: animale `sick → in_outbound_transport → in_treatment →
+treated → in_return_transport → healthy`, restituito alla posizione della gabbia.
+
 Questo documento illustra l'architettura logica, i ruoli degli agenti, la macchina a stati degli animali e i diagrammi di sequenza del sistema.
 
 ## 1. Dettaglio degli Operatori (Agenti) e Interazioni

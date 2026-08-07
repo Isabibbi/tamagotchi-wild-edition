@@ -36,6 +36,9 @@ class HealthStatus(StrEnum):
     SICK = "sick"
     IN_TREATMENT = "in_treatment"
     READY_FOR_TRANSPORT = "ready_for_transport"
+    IN_OUTBOUND_TRANSPORT = "in_outbound_transport"
+    TREATED = "treated"
+    IN_RETURN_TRANSPORT = "in_return_transport"
 
 
 class AgentRole(StrEnum):
@@ -80,6 +83,7 @@ class Animal:
     species: str
     position: Position
     health: HealthStatus = HealthStatus.HEALTHY
+    carried_by: str | None = None
 
     def __post_init__(self) -> None:
         _require_identifier(self.id, "animal id")
@@ -113,6 +117,18 @@ class FoodStock:
         _require_identifier(self.id, "food stock id")
         if self.quantity < 0:
             raise ValueError("food quantity must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class MedicineStock:
+    id: str
+    position: Position
+    quantity: int
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.id, "medicine stock id")
+        if self.quantity < 0:
+            raise ValueError("medicine quantity must not be negative")
 
 
 @dataclass(frozen=True, slots=True)

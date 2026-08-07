@@ -15,6 +15,12 @@ class ActionType(StrEnum):
     TAKE_FOOD = "take_food"
     FILL_BOWL = "fill_bowl"
     FAIL_TASK = "fail_task"
+    PICKUP_SICK_ANIMAL = "pickup_sick_animal"
+    DELIVER_TO_TREATMENT = "deliver_to_treatment"
+    TAKE_MEDICINE = "take_medicine"
+    TREAT_ANIMAL = "treat_animal"
+    PICKUP_TREATED_ANIMAL = "pickup_treated_animal"
+    RETURN_ANIMAL_TO_CAGE = "return_animal_to_cage"
 
 
 @dataclass(frozen=True, slots=True)

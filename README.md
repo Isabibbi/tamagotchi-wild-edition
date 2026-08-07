@@ -2,7 +2,7 @@
 
 An educational multi-agent system for the automated management of a **Wildlife Rescue Center (CRAS)**, inspired by direct volunteering experience with ENPA.
 
-> **Project status:** Phase 2 feeding workflow implemented. Logistics and Feeding are SPADE-BDI agents with AgentSpeak plans; they cooperate through the embedded XMPP server and update the authoritative environment through correlated FIPA/JSON messages.
+> **Project status:** Phase 3 medical-care workflow implemented. Veterinary and Logistics complete the full cage-to-treatment-to-cage lifecycle through SPADE/XMPP and AgentSpeak plans. The feeding workflow remains available as a separate scenario.
 
 ## Overview
 
@@ -41,7 +41,7 @@ Animals are passive resources whose position and condition are changed by autono
 
 1. ~~Define the architecture and model the 2D environment.~~ **Completed.**
 2. ~~Implement the feeding workflow to validate agent cooperation.~~ **Completed.**
-3. Add animal transport and healthcare workflows.
+3. ~~Add animal transport and healthcare workflows.~~ **Completed.**
 4. Scale to multiple agents per role.
 5. Add concurrency policies for shared operational areas.
 
@@ -73,31 +73,26 @@ Animals are passive resources whose position and condition are changed by autono
 - [Incremental roadmap](docs/02_roadmap_incrementale.md)
 - [First increment: feeding workflow](docs/03_primo_incremento_alimentazione.md)
 - [Testing strategy](docs/04_strategia_test.md)
+- [Phase 3: medical-care workflow](docs/05_fase_3_cure_mediche.md)
 - [Agent architecture and workflows](docs/schemi_agenti_flussi.md)
 - [Project development guidelines](docs/linee_guida_progetto.md)
 
 ## Running the project
 
-From PowerShell, install the project in the existing local environment and run the feeding workflow:
+From PowerShell, run the medical-care workflow:
 
 ```powershell
-py -3.12 -m venv .my_sdai
-& .\.my_sdai\Scripts\python.exe -m pip install -e ".[dev]"
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild
 ```
 
 Expected result:
 
 ```text
-task=task_001 agent=logistics_01 event=feeding_requested cage=cage_01
-task=task_001 agent=feeding_01 event=task_accepted
-task=task_001 agent=environment event=food_taken quantity=1
-task=task_001 agent=environment event=bowl_filled cage=cage_01
-task=task_001 agent=feeding_01 event=task_completed
-PHASE 2 OK
-task=task_001 status=completed
-food=2->1 bowl=1/1
-messages=8 conversation-id=task_001
+PHASE 3 OK
+task=medical_001 status=completed
+animal=healthy position=2,4
+medicine=1->0
+messages=21 conversation-id=medical_001
 ```
 
 Run all automated tests with:
@@ -108,8 +103,14 @@ Run all automated tests with:
 
 The command starts and stops SPADE's embedded XMPP server automatically. The local agent accounts are registered for the duration of the scenario; no Internet access or external credentials are required.
 
-To verify the explicit failure path with an empty Food Storage:
+The feeding workflow remains executable with:
 
 ```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --food 0
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --scenario feeding
+```
+
+To verify the medical failure path without medicine:
+
+```powershell
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --medicine 0
 ```

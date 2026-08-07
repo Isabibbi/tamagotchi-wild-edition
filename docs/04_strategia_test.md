@@ -29,7 +29,7 @@ Ogni fase deve poter essere verificata automaticamente sul PC di sviluppo. La GU
 | Alimentazione riuscita ✅ | Ciotola vuota, cibo presente | Verificato: ciotola piena, scorta decrementata |
 | Magazzino vuoto ✅ | Ciotola vuota, cibo assente | Verificato: task `rejected`, nessuna modifica incoerente |
 | Richiesta duplicata ✅ | Stesso `task_id` inviato due volte | Verificato: una sola esecuzione |
-| Cura completa | Animale malato in gabbia | Animale curato e riportato in gabbia |
+| Cura completa ✅ | Animale malato in gabbia | Verificato: animale sano e riportato in gabbia |
 | Area piena | Capacità raggiunta | Agente in attesa o rifiuto controllato |
 
 ## Rendere i test deterministici

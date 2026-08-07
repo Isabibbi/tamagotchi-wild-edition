@@ -9,7 +9,7 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 | 0 — Spike tecnico archiviato | Validare SPADE-BDI e XMPP locale | La compatibilità è stata verificata; il codice temporaneo è stato rimosso | Decisioni consolidate nell'architettura |
 | 1 — Dominio e ambiente ✅ | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Completata in Preview 01 con test unitari e di integrazione |
 | 2 — Alimentazione ✅ | Completare la prima cooperazione | Logistics richiede e Feeding riempie una ciotola | Completata: scenario SPADE-BDI end-to-end verde |
-| 3 — Cure mediche | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Transizioni e messaggi verificati |
+| 3 — Cure mediche ✅ | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Completata: ciclo SPADE-BDI e transizioni verificati |
 | 4 — Scalabilità | Avviare più agenti per ruolo | Un task viene eseguito una sola volta | Nessun task duplicato nei test concorrenti |
 | 5 — Concorrenza | Applicare capacità alle aree | Gli agenti attendono senza violare i limiti | Test su capacità, timeout e rilascio risorse |
 | 6 — Demo finale | Integrare GUI e osservabilità | Scenario completo visibile e riproducibile | Avvio documentato su PC pulito |
@@ -59,6 +59,10 @@ Non includere ancora animali malati, trasporto, più agenti, lock o pathfinding 
 ## Fase 3 — Cure mediche
 
 Durata indicativa: **3–4 giorni**.
+
+**Stato: completata.** Veterinary richiede entrambi i trasporti, preleva il
+medicinale, cura il paziente e ne verifica il rientro. Il caso senza medicinali
+termina esplicitamente con task `rejected`.
 
 Sviluppare in due sotto-scenari:
 

@@ -19,6 +19,7 @@ from tamagotchi_wild.messaging import (
     MESSAGE_LANGUAGE,
     MessageContractError,
     PERCEPTION_ONTOLOGY,
+    SickAnimalPerception,
     workflow_metadata,
 )
 from tamagotchi_wild.domain import ActionType
@@ -109,6 +110,38 @@ class EnvironmentAgent(Agent):
             )
             self.sent.set()
 
+    class SickAnimalSender(OneShotBehaviour):
+        def __init__(
+            self,
+            recipient: str,
+            perception: SickAnimalPerception,
+            sent: asyncio.Event,
+        ) -> None:
+            super().__init__()
+            self.recipient = recipient
+            self.perception = perception
+            self.sent = sent
+
+        async def run(self) -> None:
+            task_id = self.perception.task_id
+            message = Message(to=self.recipient, body=self.perception.to_json())
+            message.thread = task_id
+            for key, value in workflow_metadata(
+                PERCEPTION_ONTOLOGY,
+                "inform",
+                task_id,
+            ).items():
+                message.set_metadata(key, value)
+            await self.send(message)
+            self.agent.message_trace.record(
+                self.agent.agent_label,
+                self.recipient.split("@", 1)[0],
+                PERCEPTION_ONTOLOGY,
+                "inform",
+                task_id,
+            )
+            self.sent.set()
+
     def __init__(
         self,
         jid: str,
@@ -148,6 +181,24 @@ class EnvironmentAgent(Agent):
         )
         await asyncio.wait_for(sent.wait(), timeout=timeout_seconds)
 
+    async def publish_sick_animal(
+        self,
+        recipient: str,
+        task_id: str,
+        animal_id: str,
+        cage_id: str,
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        sent = asyncio.Event()
+        self.add_behaviour(
+            self.SickAnimalSender(
+                recipient,
+                SickAnimalPerception(task_id, animal_id, cage_id),
+                sent,
+            )
+        )
+        await asyncio.wait_for(sent.wait(), timeout=timeout_seconds)
+
     def _record_action(self, request: ActionRequest) -> None:
         if request.requested_action is ActionType.TAKE_FOOD:
             self.activity_log.record(
@@ -176,4 +227,26 @@ class EnvironmentAgent(Agent):
                 request.task_id,
                 self.agent_label,
                 "task_rejected",
+            )
+        elif request.requested_action in {
+            ActionType.PICKUP_SICK_ANIMAL,
+            ActionType.DELIVER_TO_TREATMENT,
+            ActionType.TAKE_MEDICINE,
+            ActionType.TREAT_ANIMAL,
+            ActionType.PICKUP_TREATED_ANIMAL,
+            ActionType.RETURN_ANIMAL_TO_CAGE,
+        }:
+            event_by_action = {
+                ActionType.PICKUP_SICK_ANIMAL: "patient_picked_up",
+                ActionType.DELIVER_TO_TREATMENT: "patient_delivered",
+                ActionType.TAKE_MEDICINE: "medicine_taken",
+                ActionType.TREAT_ANIMAL: "animal_treated",
+                ActionType.PICKUP_TREATED_ANIMAL: "treated_patient_picked_up",
+                ActionType.RETURN_ANIMAL_TO_CAGE: "patient_returned",
+            }
+            self.activity_log.record(
+                request.task_id,
+                self.agent_label,
+                event_by_action[request.requested_action],
+                target=request.target_id,
             )

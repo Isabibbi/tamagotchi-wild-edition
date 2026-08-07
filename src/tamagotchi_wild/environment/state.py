@@ -9,12 +9,15 @@ from tamagotchi_wild.domain import (
     ActionCommand,
     ActionResult,
     ActionType,
+    AgentRole,
     AgentState,
     Animal,
     Area,
+    AreaType,
     Bowl,
     FoodStock,
     HealthStatus,
+    MedicineStock,
     Position,
     Task,
     TaskStatus,
@@ -49,6 +52,7 @@ class WorldSnapshot:
     animals: tuple[Animal, ...]
     bowls: tuple[Bowl, ...]
     food_stocks: tuple[FoodStock, ...]
+    medicine_stocks: tuple[MedicineStock, ...]
     agents: tuple[AgentState, ...]
     tasks: tuple[Task, ...]
     event_count: int
@@ -70,6 +74,7 @@ class EnvironmentState:
         self._animals: dict[str, Animal] = {}
         self._bowls: dict[str, Bowl] = {}
         self._food_stocks: dict[str, FoodStock] = {}
+        self._medicine_stocks: dict[str, MedicineStock] = {}
         self._agents: dict[str, AgentState] = {}
         self._tasks: dict[str, Task] = {}
         self._entity_ids: set[str] = set(self._areas)
@@ -99,6 +104,14 @@ class EnvironmentState:
             food_stock.position,
             self._food_stocks,
             food_stock,
+        )
+
+    def register_medicine_stock(self, medicine_stock: MedicineStock) -> None:
+        self._register(
+            medicine_stock.id,
+            medicine_stock.position,
+            self._medicine_stocks,
+            medicine_stock,
         )
 
     def register_agent(self, agent: AgentState) -> None:
@@ -150,6 +163,9 @@ class EnvironmentState:
             food_stocks=tuple(
                 sorted(self._food_stocks.values(), key=lambda item: item.id)
             ),
+            medicine_stocks=tuple(
+                sorted(self._medicine_stocks.values(), key=lambda item: item.id)
+            ),
             agents=tuple(sorted(self._agents.values(), key=lambda item: item.id)),
             tasks=tuple(sorted(self._tasks.values(), key=lambda item: item.id)),
             event_count=len(self._events),
@@ -187,6 +203,24 @@ class EnvironmentState:
         elif command.action is ActionType.FAIL_TASK:
             origin = self._fail_task(command)
             detail = "task rejected"
+        elif command.action is ActionType.PICKUP_SICK_ANIMAL:
+            origin = self._pickup_sick_animal(command)
+            detail = "sick animal picked up"
+        elif command.action is ActionType.DELIVER_TO_TREATMENT:
+            origin = self._deliver_to_treatment(command)
+            detail = "animal delivered to treatment"
+        elif command.action is ActionType.TAKE_MEDICINE:
+            origin = self._take_medicine(command)
+            detail = "medicine taken"
+        elif command.action is ActionType.TREAT_ANIMAL:
+            origin = self._treat_animal(command)
+            detail = "animal treated"
+        elif command.action is ActionType.PICKUP_TREATED_ANIMAL:
+            origin = self._pickup_treated_animal(command)
+            detail = "treated animal picked up"
+        elif command.action is ActionType.RETURN_ANIMAL_TO_CAGE:
+            origin = self._return_animal_to_cage(command)
+            detail = "animal returned to cage"
         else:
             raise InvalidActionError(f"unsupported action: {command.action}")
 
@@ -244,17 +278,27 @@ class EnvironmentState:
         return bowl.position
 
     def _feeding_task(self, task_id: str) -> Task:
-        if not task_id.strip():
-            raise InvalidActionError("task_id is required for feeding actions")
-        task = self._tasks.get(task_id)
-        if task is None:
-            raise UnknownEntityError(f"unknown task: {task_id}")
+        task = self._task(task_id)
         if task.kind is not TaskType.REFILL_BOWL:
             raise InvalidActionError(f"task {task_id} is not a feeding task")
         return task
 
+    def _medical_task(self, task_id: str) -> Task:
+        task = self._task(task_id)
+        if task.kind is not TaskType.TREAT_ANIMAL:
+            raise InvalidActionError(f"task {task_id} is not a medical task")
+        return task
+
+    def _task(self, task_id: str) -> Task:
+        if not task_id.strip():
+            raise InvalidActionError("task_id is required")
+        task = self._tasks.get(task_id)
+        if task is None:
+            raise UnknownEntityError(f"unknown task: {task_id}")
+        return task
+
     def _fail_task(self, command: ActionCommand) -> None:
-        task = self._feeding_task(command.task_id)
+        task = self._task(command.task_id)
         if command.target_id != task.id:
             raise InvalidActionError(
                 f"fail_task target must be task {task.id}, not {command.target_id}"
@@ -268,6 +312,168 @@ class EnvironmentState:
         )
         return None
 
+    def _pickup_sick_animal(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        animal = self._medical_animal(task, command.target_id)
+        if animal.health is not HealthStatus.SICK:
+            raise InvalidActionError(f"animal {animal.id} is not sick in its cage")
+        self._require_area(animal.position, AreaType.CAGE_AREA, "animal")
+        self._require_area(logistics.position, AreaType.CAGE_AREA, "logistics agent")
+
+        self._animals[animal.id] = replace(
+            animal,
+            health=HealthStatus.IN_OUTBOUND_TRANSPORT,
+            carried_by=command.actor_id,
+        )
+        self._tasks[task.id] = replace(
+            task,
+            status=TaskStatus.IN_PROGRESS,
+            assigned_to=command.actor_id,
+        )
+        return animal.position
+
+    def _deliver_to_treatment(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        animal = self._medical_animal(task, command.target_id)
+        if animal.health is not HealthStatus.IN_OUTBOUND_TRANSPORT:
+            raise InvalidActionError(f"animal {animal.id} is not in outbound transport")
+        if animal.carried_by != command.actor_id:
+            raise InvalidActionError(f"animal {animal.id} is not carried by {command.actor_id}")
+        destination = self._medical_destination(
+            command.destination,
+            AreaType.TREATMENT_ROOM,
+        )
+
+        self._animals[animal.id] = replace(
+            animal,
+            position=destination,
+            health=HealthStatus.IN_TREATMENT,
+            carried_by=None,
+        )
+        self._agents[logistics.id] = replace(logistics, position=destination)
+        return animal.position
+
+    def _take_medicine(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        veterinary = self._actor(command.actor_id, AgentRole.VETERINARY)
+        animal = self._medical_animal(task, task.target_id)
+        if animal.health is not HealthStatus.IN_TREATMENT:
+            raise InvalidActionError(f"animal {animal.id} is not ready for treatment")
+        medicine = self._medicine_stocks.get(command.target_id)
+        if medicine is None:
+            raise UnknownEntityError(f"unknown medicine stock: {command.target_id}")
+        quantity = self._feeding_quantity(command.quantity)
+        if medicine.quantity < quantity:
+            raise InvalidActionError("not enough medicine")
+        self._require_area(medicine.position, AreaType.MEDICAL_STORAGE, "medicine stock")
+
+        self._medicine_stocks[medicine.id] = replace(
+            medicine,
+            quantity=medicine.quantity - quantity,
+        )
+        self._agents[veterinary.id] = replace(veterinary, position=medicine.position)
+        self._tasks[task.id] = replace(
+            task,
+            status=TaskStatus.IN_PROGRESS,
+            assigned_to=command.actor_id,
+        )
+        return medicine.position
+
+    def _treat_animal(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        veterinary = self._actor(command.actor_id, AgentRole.VETERINARY)
+        animal = self._medical_animal(task, command.target_id)
+        if animal.health is not HealthStatus.IN_TREATMENT:
+            raise InvalidActionError(f"animal {animal.id} is not in treatment")
+        if (task.id, ActionType.TAKE_MEDICINE) not in self._applied_task_actions:
+            raise InvalidActionError(
+                f"medicine has not been taken for task {task.id}"
+            )
+        self._require_area(veterinary.position, AreaType.TREATMENT_ROOM, "veterinary")
+        if veterinary.position != animal.position:
+            raise InvalidActionError("veterinary and animal are not in the same cell")
+
+        self._animals[animal.id] = replace(animal, health=HealthStatus.TREATED)
+        return animal.position
+
+    def _pickup_treated_animal(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        animal = self._medical_animal(task, command.target_id)
+        if animal.health is not HealthStatus.TREATED:
+            raise InvalidActionError(f"animal {animal.id} has not been treated")
+        if logistics.position != animal.position:
+            raise InvalidActionError("logistics agent and animal are not in the same cell")
+
+        self._animals[animal.id] = replace(
+            animal,
+            health=HealthStatus.IN_RETURN_TRANSPORT,
+            carried_by=command.actor_id,
+        )
+        self._tasks[task.id] = replace(task, assigned_to=command.actor_id)
+        return animal.position
+
+    def _return_animal_to_cage(self, command: ActionCommand) -> Position:
+        task = self._medical_task(command.task_id)
+        logistics = self._actor(command.actor_id, AgentRole.LOGISTICS)
+        animal = self._medical_animal(task, command.target_id)
+        if animal.health is not HealthStatus.IN_RETURN_TRANSPORT:
+            raise InvalidActionError(f"animal {animal.id} is not in return transport")
+        if animal.carried_by != command.actor_id:
+            raise InvalidActionError(f"animal {animal.id} is not carried by {command.actor_id}")
+        destination = self._medical_destination(command.destination, AreaType.CAGE_AREA)
+
+        self._animals[animal.id] = replace(
+            animal,
+            position=destination,
+            health=HealthStatus.HEALTHY,
+            carried_by=None,
+        )
+        self._agents[logistics.id] = replace(logistics, position=destination)
+        self._tasks[task.id] = replace(task, status=TaskStatus.COMPLETED)
+        return animal.position
+
+    def _medical_animal(self, task: Task, animal_id: str) -> Animal:
+        if task.target_id != animal_id:
+            raise InvalidActionError(
+                f"task {task.id} targets {task.target_id}, not {animal_id}"
+            )
+        animal = self._animals.get(animal_id)
+        if animal is None:
+            raise UnknownEntityError(f"unknown animal: {animal_id}")
+        return animal
+
+    def _actor(self, actor_id: str, role: AgentRole) -> AgentState:
+        actor = self._agents.get(actor_id)
+        if actor is None:
+            raise UnknownEntityError(f"unknown agent: {actor_id}")
+        if actor.role is not role:
+            raise InvalidActionError(f"agent {actor_id} does not have role {role.value}")
+        return actor
+
+    def _medical_destination(
+        self,
+        destination: Position | None,
+        area_type: AreaType,
+    ) -> Position:
+        if destination is None:
+            raise InvalidActionError("destination is required")
+        self._validate_position(destination)
+        self._require_area(destination, area_type, "destination")
+        return destination
+
+    def _require_area(
+        self,
+        position: Position,
+        expected: AreaType,
+        subject: str,
+    ) -> None:
+        area = self.area_at(position)
+        if area is None or area.kind is not expected:
+            raise InvalidActionError(f"{subject} must be in {expected.value}")
+
     @staticmethod
     def _feeding_quantity(quantity: int | None) -> int:
         if type(quantity) is not int or quantity < 1:
@@ -278,7 +484,16 @@ class EnvironmentState:
     def _idempotency_key(
         command: ActionCommand,
     ) -> tuple[str, ActionType] | None:
-        if command.action not in (ActionType.TAKE_FOOD, ActionType.FILL_BOWL):
+        if command.action not in (
+            ActionType.TAKE_FOOD,
+            ActionType.FILL_BOWL,
+            ActionType.PICKUP_SICK_ANIMAL,
+            ActionType.DELIVER_TO_TREATMENT,
+            ActionType.TAKE_MEDICINE,
+            ActionType.TREAT_ANIMAL,
+            ActionType.PICKUP_TREATED_ANIMAL,
+            ActionType.RETURN_ANIMAL_TO_CAGE,
+        ):
             return None
         if not command.task_id.strip():
             return None
