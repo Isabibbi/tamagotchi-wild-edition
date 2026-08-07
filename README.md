@@ -2,7 +2,7 @@
 
 An educational multi-agent system for the automated management of a **Wildlife Rescue Center (CRAS)**, inspired by direct volunteering experience with ENPA.
 
-> **Project status:** Phase 0 technical spike implemented. Two SPADE-BDI agents run locally and exchange a correlated message through SPADE's embedded XMPP server.
+> **Project status:** Preview 01 architecture implemented. The repository now contains the domain model, authoritative grid environment, versioned message contracts, SPADE environment adapter, read-only visualization projection, and automated tests. Operational role workflows and the GUI are intentionally deferred.
 
 ## Overview
 
@@ -39,7 +39,7 @@ Animals are passive resources whose position and condition are changed by autono
 
 ## Development roadmap
 
-1. Model and visualize the 2D environment.
+1. ~~Define the architecture and model the 2D environment.~~ **Completed.**
 2. Implement the feeding workflow to validate agent cooperation.
 3. Add animal transport and healthcare workflows.
 4. Scale to multiple agents per role.
@@ -50,8 +50,17 @@ Animals are passive resources whose position and condition are changed by autono
 ```text
 .
 ├── docs/                    # Architecture, workflows, and project notes
-├── src/tamagotchi_wild/     # Python package and AgentSpeak plans
-├── tests/smoke/             # Local end-to-end compatibility test
+├── src/tamagotchi_wild/
+│   ├── agents/              # SPADE adapters
+│   ├── bdi/                 # AgentSpeak plans added with role workflows
+│   ├── domain/              # Pure domain entities and action contracts
+│   ├── environment/         # Authoritative grid state and atomic actions
+│   ├── messaging/           # Versioned JSON/FIPA contracts
+│   └── visualization/       # Read-only state projection for a future GUI
+├── tests/
+│   ├── unit/                # Domain, environment, messages and projection
+│   ├── integration/         # Boundaries between messages and environment
+│   └── scenarios/           # End-to-end workflows added incrementally
 ├── pyproject.toml           # Package metadata and pinned direct dependencies
 ├── .gitignore               # Local and generated files excluded from Git
 └── README.md                # Project overview
@@ -69,26 +78,27 @@ Animals are passive resources whose position and condition are changed by autono
 
 ## Running the project
 
-The current executable is the Phase 0 compatibility spike. From PowerShell:
+From PowerShell, install the project in the existing local environment and run Preview 01:
 
 ```powershell
 py -3.12 -m venv .my_sdai
 & .\.my_sdai\Scripts\python.exe -m pip install -e ".[dev]"
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild.spike
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild
 ```
 
 Expected result:
 
 ```text
-PHASE 0 OK
-BDI ready: requester=yes responder=yes
-response_status=acknowledged
+PREVIEW 01 OK
+grid=12x8
+areas=4 agents=3
+animals=1 bowls=1
 ```
 
-Run the automated smoke test with:
+Run all automated tests with:
 
 ```powershell
 & .\.my_sdai\Scripts\python.exe -m pytest
 ```
 
-The spike starts and stops its own local XMPP server. It does not require Internet access, external accounts, or manually configured agent credentials at runtime.
+The preview is local and deterministic. It does not start XMPP, open a GUI, require Internet access, or require agent credentials. Those runtime concerns will be introduced with the operational agent workflows.

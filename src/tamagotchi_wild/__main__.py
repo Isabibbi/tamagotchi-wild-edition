@@ -1,4 +1,4 @@
-from tamagotchi_wild.spike import main
+from tamagotchi_wild.main import main
 
 
 if __name__ == "__main__":

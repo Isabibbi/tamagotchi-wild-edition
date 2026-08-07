@@ -4,9 +4,14 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 
 ## Stato di avanzamento
 
-**Fase 0 completata:** due agenti SPADE-BDI eseguono i rispettivi piani AgentSpeak e scambiano localmente una richiesta e una risposta correlate. Il server XMPP integrato parte e si arresta insieme allo scenario; lo smoke test è automatizzato.
+**Preview 01 completata:** l'architettura descritta in
+[`01_architettura_proposta.md`](01_architettura_proposta.md) è stata tradotta in
+codice eseguibile e testato. Lo spike temporaneo della fase 00, inclusi i due
+piani `.asl` dimostrativi, è stato rimosso dal codice corrente.
 
-Il prossimo incremento è la modellazione del dominio e dell'`EnvironmentAgent`, prima della GUI.
+Il prossimo incremento è il workflow di alimentazione. Questo file rimane come
+punto di ingresso alla pianificazione, non rappresenta più l'implementazione
+attiva.
 
 ## Decisioni consigliate subito
 
@@ -22,8 +27,8 @@ Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambia
 
 ## Ordine di lavoro
 
-1. ~~Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.~~ **Completato.**
-2. Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.
+1. ~~Eseguire uno **spike tecnico minimo**: due agenti SPADE-BDI si avviano e scambiano un messaggio usando il server XMPP integrato.~~ **Validazione conclusa; codice temporaneo rimosso.**
+2. ~~Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.~~ **Completato in Preview 01.**
 3. Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.
 4. Aggiungere la visualizzazione come proiezione dello stato dell'ambiente.
 5. Procedere con cure mediche, più agenti e controllo della concorrenza.

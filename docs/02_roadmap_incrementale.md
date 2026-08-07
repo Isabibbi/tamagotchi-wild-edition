@@ -6,8 +6,8 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 
 | Fase | Obiettivo | Risultato dimostrabile | Criterio di uscita |
 |---|---|---|---|
-| 0 — Spike tecnico ✅ | Validare SPADE-BDI e XMPP locale | Due agenti si avviano e comunicano | Completata: esecuzione ripetibile e smoke test automatico |
-| 1 — Dominio e ambiente | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Test unitari sulle regole principali |
+| 0 — Spike tecnico archiviato | Validare SPADE-BDI e XMPP locale | La compatibilità è stata verificata; il codice temporaneo è stato rimosso | Decisioni consolidate nell'architettura |
+| 1 — Dominio e ambiente ✅ | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Completata in Preview 01 con test unitari e di integrazione |
 | 2 — Alimentazione | Completare la prima cooperazione | Logistics richiede e Feeding riempie una ciotola | Scenario automatico end-to-end verde |
 | 3 — Cure mediche | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Transizioni e messaggi verificati |
 | 4 — Scalabilità | Avviare più agenti per ruolo | Un task viene eseguito una sola volta | Nessun task duplicato nei test concorrenti |
@@ -18,7 +18,7 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 
 Durata indicativa: **mezza giornata**.
 
-**Stato: completata.** La combinazione Python 3.12.4, SPADE 4.1.4 e SPADE-BDI 0.3.2 è stata validata sul PC di sviluppo.
+**Stato: archiviata.** La combinazione Python 3.12.4, SPADE 4.1.4 e SPADE-BDI 0.3.2 è stata validata sul PC di sviluppo. Lo spike era usa-e-getta ed è stato rimosso passando a Preview 01.
 
 Produrre solo:
 
@@ -33,6 +33,8 @@ Se SPADE 4.1.x e SPADE-BDI 0.3.2 mostrano incompatibilità, fermarsi qui e fissa
 ## Fase 1 — Dominio e ambiente
 
 Durata indicativa: **1–2 giorni**.
+
+**Stato: completata in Preview 01.**
 
 Implementare prima regole pure, senza GUI:
 

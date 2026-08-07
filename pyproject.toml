@@ -19,14 +19,11 @@ dev = [
 ]
 
 [project.scripts]
-tamagotchi-wild-spike = "tamagotchi_wild.spike:main"
+tamagotchi-wild = "tamagotchi_wild.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-tamagotchi_wild = ["bdi/*.asl"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -p no:cacheprovider"

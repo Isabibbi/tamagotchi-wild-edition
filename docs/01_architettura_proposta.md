@@ -1,5 +1,20 @@
 # Architettura proposta
 
+## Stato di implementazione
+
+**Preview 01 completata.** Sono stati implementati i confini architetturali
+descritti in questo documento:
+
+- `domain/`: entità tipizzate, stati finiti e comandi;
+- `environment/`: griglia autorevole, validazione atomica, snapshot ed eventi;
+- `messaging/`: payload JSON versionati e metadata FIPA;
+- `agents/`: adattatore SPADE dell'`EnvironmentAgent`;
+- `visualization/`: proiezione immutabile per la futura vista 2D.
+
+Lo scenario si avvia con `python -m tamagotchi_wild`; i test si eseguono con
+`python -m pytest`. La GUI e i piani BDI dei tre ruoli appartengono agli
+incrementi successivi.
+
 ## Principio guida
 
 Separare tre responsabilità: **decidere**, **modificare il mondo** e **visualizzare**. Gli agenti BDI decidono; l'ambiente valida e applica le azioni; la GUI mostra una copia dello stato.
@@ -48,9 +63,9 @@ Usare Python per operazioni concrete come:
 - modificare lo stato dell'ambiente;
 - eseguire timer, log e integrazione grafica.
 
-## Struttura futura di `src/`
+## Struttura corrente di `src/`
 
-Questa è una proposta da applicare quando inizierà l'implementazione:
+La proposta è ora applicata nel repository:
 
 ```text
 src/
@@ -134,4 +149,3 @@ Per il primo incremento usare un solo agente per ruolo. Introdurre `N` agenti so
 - [SPADE: quick start e server XMPP integrato](https://spadeagents.eu/docs/spade/usage)
 - [SPADE-BDI 0.3.2: documentazione ufficiale](https://spade-bdi.readthedocs.io/)
 - [SPADE-BDI: custom actions](https://spade-bdi.readthedocs.io/latest/custom.html)
-
