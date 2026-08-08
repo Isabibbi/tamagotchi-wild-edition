@@ -94,7 +94,8 @@ tests/
 
 | Entità | Dati minimi iniziali |
 |---|---|
-| `Animal` | `id`, specie, posizione, stato di salute |
+| `Animal` | `id`, specie, condizione, gabbia, posizione, stato di salute |
+| `Cage` | `id`, posizione nella Cage Area, animale, ciotola |
 | `Bowl` | `id`, gabbia, livello, capacità |
 | `Area` | `id`, tipo, celle, capacità |
 | `AgentState` | `id`, ruolo, posizione, task corrente |

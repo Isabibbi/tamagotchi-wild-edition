@@ -16,6 +16,7 @@ class GridConfig:
 
 DEFAULT_GRID = GridConfig()
 MAX_OPERATIONAL_AGENTS = 7
+MAX_ANIMALS = 40
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +26,7 @@ class SimulationConfig:
     veterinary_agents: int = 2
     logistics_agents: int = 3
     feeding_agents: int = 2
+    animal_count: int = 1
 
     def __post_init__(self) -> None:
         counts = {
@@ -39,6 +41,8 @@ class SimulationConfig:
             raise ValueError(
                 f"at most {MAX_OPERATIONAL_AGENTS} operational agents are allowed"
             )
+        if type(self.animal_count) is not int or not 1 <= self.animal_count <= MAX_ANIMALS:
+            raise ValueError(f"animal_count must be between 1 and {MAX_ANIMALS}")
 
     @property
     def operator_count(self) -> int:

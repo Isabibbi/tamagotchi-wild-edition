@@ -9,6 +9,7 @@ from tamagotchi_wild.domain import (
     ActionType,
     AgentRole,
     AgentState,
+    AreaType,
     Bowl,
     Position,
     Task,
@@ -47,6 +48,36 @@ def test_runtime_configuration_builds_the_requested_agent_pool() -> None:
         "logistics_02",
         "veterinary_01",
     ]
+
+
+def test_five_animals_create_five_complete_and_distinct_cases() -> None:
+    config = SimulationConfig(animal_count=5)
+
+    snapshot = build_environment(config, food=5, medicine=5).snapshot()
+
+    assert len(snapshot.animals) == 5
+    assert len(snapshot.cages) == 5
+    assert len(snapshot.bowls) == 5
+    assert len(snapshot.tasks) == 10
+    assert len({animal.condition for animal in snapshot.animals}) == 5
+    assert len({cage.position for cage in snapshot.cages}) == 5
+    assert all(
+        next(area for area in snapshot.areas if cage.position in area.cells).kind
+        is AreaType.CAGE_AREA
+        for cage in snapshot.cages
+    )
+    assert {
+        (cage.id, cage.animal_id, cage.bowl_id)
+        for cage in snapshot.cages
+    } == {
+        (f"cage_{index:02d}", f"animal_{index:03d}", f"bowl_{index:02d}")
+        for index in range(1, 6)
+    }
+
+
+def test_runtime_configuration_rejects_more_animals_than_cage_cells() -> None:
+    with pytest.raises(ValueError, match="between 1 and 40"):
+        SimulationConfig(animal_count=41)
 
 
 def test_task_phase_is_claimed_by_exactly_one_agent() -> None:

@@ -14,6 +14,7 @@ class CellProjection:
     area: AreaType
     animal_ids: tuple[str, ...]
     bowl_ids: tuple[str, ...]
+    cage_ids: tuple[str, ...]
     agent_ids: tuple[str, ...]
 
 
@@ -41,6 +42,9 @@ def project_grid(snapshot: WorldSnapshot) -> GridProjection:
             ),
             bowl_ids=tuple(
                 bowl.id for bowl in snapshot.bowls if bowl.position == position
+            ),
+            cage_ids=tuple(
+                cage.id for cage in snapshot.cages if cage.position == position
             ),
             agent_ids=tuple(
                 agent.id for agent in snapshot.agents if agent.position == position

@@ -15,6 +15,7 @@ from tamagotchi_wild.domain import (
     Area,
     AreaType,
     Bowl,
+    Cage,
     FoodStock,
     HealthStatus,
     MedicineStock,
@@ -59,6 +60,7 @@ class WorldSnapshot:
     areas: tuple[Area, ...]
     animals: tuple[Animal, ...]
     bowls: tuple[Bowl, ...]
+    cages: tuple[Cage, ...]
     food_stocks: tuple[FoodStock, ...]
     medicine_stocks: tuple[MedicineStock, ...]
     agents: tuple[AgentState, ...]
@@ -82,6 +84,7 @@ class EnvironmentState:
         self._areas = {area.id: area for area in area_items}
         self._animals: dict[str, Animal] = {}
         self._bowls: dict[str, Bowl] = {}
+        self._cages: dict[str, Cage] = {}
         self._food_stocks: dict[str, FoodStock] = {}
         self._medicine_stocks: dict[str, MedicineStock] = {}
         self._agents: dict[str, AgentState] = {}
@@ -94,6 +97,7 @@ class EnvironmentState:
             area_id: set() for area_id in self._areas
         }
         self._agent_area_access: dict[str, str] = {}
+        self._agent_area_task: dict[str, str] = {}
         self._max_area_occupancy: dict[str, int] = {
             area_id: 0 for area_id in self._areas
         }
@@ -114,6 +118,9 @@ class EnvironmentState:
 
     def register_bowl(self, bowl: Bowl) -> None:
         self._register(bowl.id, bowl.position, self._bowls, bowl)
+
+    def register_cage(self, cage: Cage) -> None:
+        self._register(cage.id, cage.position, self._cages, cage)
 
     def register_food_stock(self, food_stock: FoodStock) -> None:
         self._register(
@@ -184,6 +191,7 @@ class EnvironmentState:
             areas=tuple(sorted(self._areas.values(), key=lambda item: item.id)),
             animals=tuple(sorted(self._animals.values(), key=lambda item: item.id)),
             bowls=tuple(sorted(self._bowls.values(), key=lambda item: item.id)),
+            cages=tuple(sorted(self._cages.values(), key=lambda item: item.id)),
             food_stocks=tuple(
                 sorted(self._food_stocks.values(), key=lambda item: item.id)
             ),
@@ -256,11 +264,12 @@ class EnvironmentState:
             if area is None:
                 raise UnknownEntityError(f"unknown area: {command.target_id}")
             current = self._agent_area_access.get(actor.id)
-            if current == area.id:
+            current_task = self._agent_area_task.get(actor.id)
+            if current == area.id and current_task == command.task_id:
                 return ActionResult(True, "already_acquired")
             if current is not None:
                 raise InvalidActionError(
-                    f"agent {actor.id} must release area {current} first"
+                    f"agent {actor.id} is busy with task {current_task} in area {current}"
                 )
             occupants = self._area_occupants[area.id]
             capacity = min(area.capacity, 2)
@@ -276,6 +285,7 @@ class EnvironmentState:
         origin = actor.position
         occupants.add(actor.id)
         self._agent_area_access[actor.id] = area.id
+        self._agent_area_task[actor.id] = command.task_id
         self._agents[actor.id] = replace(actor, position=destination)
         self._max_area_occupancy[area.id] = max(
             self._max_area_occupancy[area.id],
@@ -292,15 +302,21 @@ class EnvironmentState:
             if command.target_id not in self._areas:
                 raise UnknownEntityError(f"unknown area: {command.target_id}")
             current = self._agent_area_access.get(actor.id)
+            current_task = self._agent_area_task.get(actor.id)
             if current is None:
                 return ActionResult(True, "already_released")
             if current != command.target_id:
                 raise InvalidActionError(f"agent {actor.id} does not hold area {command.target_id}")
+            if current_task != command.task_id:
+                raise InvalidActionError(
+                    f"area {command.target_id} is held for task {current_task}"
+                )
         except EnvironmentError as exc:
             return ActionResult(False, str(exc))
 
         self._area_occupants[command.target_id].remove(actor.id)
         del self._agent_area_access[actor.id]
+        del self._agent_area_task[actor.id]
         event = self._append_event(command, actor.position, "area released")
         return ActionResult(True, "accepted", event.sequence)
 

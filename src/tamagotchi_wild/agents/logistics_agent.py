@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import agentspeak as asp
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
@@ -98,7 +98,10 @@ class LogisticsAgent(ProjectBDIAgent):
                 return
             self.started = True
             request = FeedingTaskRequest(self.task_id, self.cage_id, self.bowl_id)
-            for feeding_jid in self.agent.feeding_jids:
+            self.recipients = (
+                _round_robin_recipient(self.agent.feeding_jids, self.task_id),
+            )
+            for feeding_jid in self.recipients:
                 message = _message(
                     feeding_jid,
                     request.to_json(),
@@ -148,7 +151,7 @@ class LogisticsAgent(ProjectBDIAgent):
         async def _wait_for_winner(self) -> str | None:
             deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
             refusals: set[str] = set()
-            while len(refusals) < len(self.agent.feeding_jids):
+            while len(refusals) < len(self.recipients):
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     return None
@@ -289,10 +292,14 @@ class LogisticsAgent(ProjectBDIAgent):
             )
 
             if self.direction == OUTBOUND:
+                cage_position = self.agent.cage_positions.get(
+                    self.cage_id,
+                    self.agent.cage_position,
+                )
                 actions = (
                     (
                         self.agent.cage_area_id,
-                        self.agent.cage_position,
+                        cage_position,
                         ActionType.PICKUP_SICK_ANIMAL,
                         None,
                     ),
@@ -305,6 +312,10 @@ class LogisticsAgent(ProjectBDIAgent):
                 )
                 final_status = "patient_ready"
             else:
+                cage_position = self.agent.cage_positions.get(
+                    self.cage_id,
+                    self.agent.cage_position,
+                )
                 actions = (
                     (
                         self.agent.treatment_area_id,
@@ -314,9 +325,9 @@ class LogisticsAgent(ProjectBDIAgent):
                     ),
                     (
                         self.agent.cage_area_id,
-                        self.agent.cage_position,
+                        cage_position,
                         ActionType.RETURN_ANIMAL_TO_CAGE,
-                        self.agent.cage_position,
+                        cage_position,
                     ),
                 )
                 final_status = "returned"
@@ -422,6 +433,7 @@ class LogisticsAgent(ProjectBDIAgent):
         treatment_position: Position = Position(9, 4),
         cage_area_id: str = "cage-area",
         treatment_area_id: str = "treatment-room",
+        cage_positions: Mapping[str, Position] | None = None,
     ) -> None:
         self.feeding_jids = (
             (feeding_jid,) if isinstance(feeding_jid, str) else tuple(feeding_jid)
@@ -435,6 +447,7 @@ class LogisticsAgent(ProjectBDIAgent):
         self.agent_label = jid.split("@", 1)[0]
         self.environment_jid = environment_jid
         self.cage_position = cage_position
+        self.cage_positions = dict(cage_positions or {})
         self.treatment_position = treatment_position
         self.cage_area_id = cage_area_id
         self.treatment_area_id = treatment_area_id
@@ -443,6 +456,7 @@ class LogisticsAgent(ProjectBDIAgent):
         self.workflow_status: str | None = None
         self.workflow_task_id: str | None = None
         self.workflow_done = asyncio.Event()
+        self.workflow_outcomes: dict[str, str] = {}
         self.seen_transport_requests: set[tuple[str, str]] = set()
         self.transport_requesters: dict[tuple[str, str], str] = {}
         self.transport_outcomes: dict[tuple[str, str], str] = {}
@@ -485,6 +499,7 @@ class LogisticsAgent(ProjectBDIAgent):
             status = term_text(asp.grounded(term.args[1], intention.scope))
             self.workflow_task_id = task_id
             self.workflow_status = status
+            self.workflow_outcomes[task_id] = status
             self.workflow_done.set()
             yield
 
@@ -522,3 +537,11 @@ def _message(
     for key, value in metadata.items():
         message.set_metadata(key, value)
     return message
+
+
+def _round_robin_recipient(jids: Sequence[str], task_id: str) -> str:
+    try:
+        task_number = int(task_id.rsplit("_", 1)[1])
+    except (IndexError, ValueError):
+        task_number = 1
+    return jids[(task_number - 1) % len(jids)]

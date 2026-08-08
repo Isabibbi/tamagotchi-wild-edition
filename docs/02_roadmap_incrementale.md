@@ -10,7 +10,7 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 | 1 — Dominio e ambiente ✅ | Creare una fonte unica dello stato | Azioni valide cambiano la griglia; azioni invalide sono rifiutate | Completata in Preview 01 con test unitari e di integrazione |
 | 2 — Alimentazione ✅ | Completare la prima cooperazione | Logistics richiede e Feeding riempie una ciotola | Completata: scenario SPADE-BDI end-to-end verde |
 | 3 — Cure mediche ✅ | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Completata: ciclo SPADE-BDI e transizioni verificati |
-| 4 — Scalabilità ✅ | Avviare più agenti per ruolo | Fino a 7 operatori configurabili a runtime | Completata: claim atomici e nessun task duplicato |
+| 4 — Scalabilità ✅ | Avviare più agenti e casi | Fino a 7 operatori e 40 animali configurabili | Completata: casi generati, distribuzione round-robin e claim atomici |
 | 5 — Concorrenza ✅ | Applicare capacità alle aree | Gli agenti attendono senza violare i limiti | Completata: massimo 2 accessi, attesa e rilascio verificati |
 | 6 — Demo finale | Integrare GUI e osservabilità | Scenario completo visibile e riproducibile | Avvio documentato su PC pulito |
 
@@ -77,11 +77,15 @@ Sviluppare in due sotto-scenari:
 **Stato: completate.** Esiste una sola simulazione: alimentazione e cure mediche
 partono contemporaneamente. Il numero di Veterinary, Logistics e Feeding è
 configurabile a runtime, con almeno un agente per ruolo e massimo 7 operatori
-totali. Environment è aggiuntivo e non viene contato.
+totali. Anche il numero degli animali è configurabile da 1 a 40; ogni animale
+genera gabbia, ciotola, task Feeding e task Medical. Environment è aggiuntivo e
+non viene contato.
 
 I claim atomici garantiscono un solo esecutore per fase. Tutte le aree hanno
 capienza 2; un agente attende e riprova quando la stanza è piena. Il dettaglio è
 in [Scalabilità e concorrenza](06_scalabilita_e_concorrenza.md).
+La generazione dei casi è descritta in
+[Scalabilità degli animali](07_scalabilita_animali.md).
 
 ## Registro delle decisioni
 

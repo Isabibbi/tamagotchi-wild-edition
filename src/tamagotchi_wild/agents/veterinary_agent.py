@@ -107,7 +107,10 @@ class VeterinaryAgent(ProjectBDIAgent):
                 self.cage_id,
                 self.direction,
             )
-            for logistics_jid in self.agent.logistics_jids:
+            self.recipients = (
+                _round_robin_recipient(self.agent.logistics_jids, self.task_id),
+            )
+            for logistics_jid in self.recipients:
                 message = _message(
                     logistics_jid,
                     request.to_json(),
@@ -172,7 +175,7 @@ class VeterinaryAgent(ProjectBDIAgent):
         async def _wait_for_winner(self) -> str | None:
             deadline = asyncio.get_running_loop().time() + self.agent.timeout_seconds
             refusals: set[str] = set()
-            while len(refusals) < len(self.agent.logistics_jids):
+            while len(refusals) < len(self.recipients):
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     return None
@@ -368,6 +371,7 @@ class VeterinaryAgent(ProjectBDIAgent):
         self.workflow_status: str | None = None
         self.workflow_task_id: str | None = None
         self.workflow_done = asyncio.Event()
+        self.workflow_outcomes: dict[str, str] = {}
         super().__init__(jid, password, str(asl_file))
 
     async def setup(self) -> None:
@@ -418,6 +422,7 @@ class VeterinaryAgent(ProjectBDIAgent):
             status = term_text(asp.grounded(term.args[1], intention.scope))
             self.workflow_task_id = task_id
             self.workflow_status = status
+            self.workflow_outcomes[task_id] = status
             self.workflow_done.set()
             yield
 
@@ -463,3 +468,11 @@ def _message(
     for key, value in metadata.items():
         message.set_metadata(key, value)
     return message
+
+
+def _round_robin_recipient(jids: Sequence[str], task_id: str) -> str:
+    try:
+        task_number = int(task_id.rsplit("_", 1)[1])
+    except (IndexError, ValueError):
+        task_number = 1
+    return jids[(task_number - 1) % len(jids)]

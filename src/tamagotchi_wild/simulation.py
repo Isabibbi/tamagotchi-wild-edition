@@ -1,4 +1,4 @@
-"""Simulazione unica: alimentazione e cure mediche procedono insieme."""
+"""Simulazione unica e scalabile di alimentazione e cure mediche."""
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ from tamagotchi_wild.domain import (
     AgentRole,
     AgentState,
     Animal,
+    AreaType,
     Bowl,
+    Cage,
     FoodStock,
     HealthStatus,
     MedicineStock,
@@ -34,17 +36,49 @@ from tamagotchi_wild.observability import ActivityLog, MessageTrace
 
 PASSWORD = "local-cras-password"
 ENVIRONMENT_JID = "environment@localhost"
-FEEDING_TASK_ID = "feeding_001"
-MEDICAL_TASK_ID = "medical_001"
-CAGE_ID = "cage_01"
-BOWL_ID = "bowl_01"
 FOOD_STOCK_ID = "food_stock_01"
-ANIMAL_ID = "animal_001"
 MEDICINE_STOCK_ID = "medicine_stock_01"
 FOOD_POSITION = Position(1, 1)
 MEDICINE_POSITION = Position(6, 1)
 CAGE_POSITION = Position(2, 4)
 TREATMENT_POSITION = Position(9, 4)
+
+SPECIES = (
+    "fox",
+    "owl",
+    "hedgehog",
+    "badger",
+    "hare",
+    "deer",
+    "squirrel",
+    "tortoise",
+    "heron",
+    "bat",
+)
+MEDICAL_CONDITIONS = (
+    "wing_injury",
+    "dehydration",
+    "respiratory_infection",
+    "leg_fracture",
+    "malnutrition",
+    "skin_wound",
+    "parasites",
+    "eye_infection",
+    "burn_injury",
+    "hypothermia",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AnimalCase:
+    animal_id: str
+    cage_id: str
+    bowl_id: str
+    feeding_task_id: str
+    medical_task_id: str
+    position: Position
+    species: str
+    condition: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,12 +89,20 @@ class SimulationResult:
     veterinary_agents: int
     logistics_agents: int
     feeding_agents: int
+    animal_count: int
+    cage_count: int
+    bowl_count: int
+    feeding_task_count: int
+    medical_task_count: int
+    completed_feeding_tasks: int
+    completed_medical_tasks: int
+    healthy_animals: int
+    filled_bowls: int
     feeding_status: str
     medical_status: str
-    bowl_level: int
     food_remaining: int
-    animal_health: str
     medicine_remaining: int
+    animal_conditions: tuple[str, ...]
     max_room_occupancy: int
     room_capacity: int
     active_room_occupancy_at_end: int
@@ -71,21 +113,91 @@ class SimulationResult:
     error: str | None = None
 
 
-def build_environment(config: SimulationConfig, food: int, medicine: int) -> EnvironmentState:
+def case_definitions(config: SimulationConfig) -> tuple[AnimalCase, ...]:
+    """Crea identificativi e posizioni deterministiche nella Cage Area."""
+
+    template_world = create_default_environment()
+    cage_area = next(
+        area
+        for area in template_world.snapshot().areas
+        if area.kind is AreaType.CAGE_AREA
+    )
+    ordered_cells = (CAGE_POSITION,) + tuple(
+        position
+        for position in sorted(cage_area.cells, key=lambda item: (item.y, item.x))
+        if position != CAGE_POSITION
+    )
+    cases = []
+    for index, position in enumerate(
+        ordered_cells[: config.animal_count],
+        start=1,
+    ):
+        condition = (
+            MEDICAL_CONDITIONS[index - 1]
+            if index <= len(MEDICAL_CONDITIONS)
+            else f"other_condition_{index:03d}"
+        )
+        cases.append(
+            AnimalCase(
+                animal_id=f"animal_{index:03d}",
+                cage_id=f"cage_{index:02d}",
+                bowl_id=f"bowl_{index:02d}",
+                feeding_task_id=f"feeding_{index:03d}",
+                medical_task_id=f"medical_{index:03d}",
+                position=position,
+                species=SPECIES[(index - 1) % len(SPECIES)],
+                condition=condition,
+            )
+        )
+    return tuple(cases)
+
+
+def build_environment(
+    config: SimulationConfig,
+    food: int,
+    medicine: int,
+) -> EnvironmentState:
     world = create_default_environment()
-    world.register_bowl(Bowl(BOWL_ID, CAGE_ID, CAGE_POSITION))
+    cases = case_definitions(config)
     world.register_food_stock(FoodStock(FOOD_STOCK_ID, FOOD_POSITION, food))
-    world.register_animal(Animal(ANIMAL_ID, "fox", CAGE_POSITION, HealthStatus.SICK))
     world.register_medicine_stock(
         MedicineStock(MEDICINE_STOCK_ID, MEDICINE_POSITION, medicine)
     )
-    world.register_task(Task(FEEDING_TASK_ID, TaskType.REFILL_BOWL, BOWL_ID))
-    world.register_task(Task(MEDICAL_TASK_ID, TaskType.TREAT_ANIMAL, ANIMAL_ID))
+    for case in cases:
+        world.register_cage(
+            Cage(case.cage_id, case.position, case.animal_id, case.bowl_id)
+        )
+        world.register_bowl(Bowl(case.bowl_id, case.cage_id, case.position))
+        world.register_animal(
+            Animal(
+                case.animal_id,
+                case.species,
+                case.position,
+                health=HealthStatus.SICK,
+                condition=case.condition,
+                cage_id=case.cage_id,
+            )
+        )
+        world.register_task(
+            Task(case.feeding_task_id, TaskType.REFILL_BOWL, case.bowl_id)
+        )
+        world.register_task(
+            Task(case.medical_task_id, TaskType.TREAT_ANIMAL, case.animal_id)
+        )
 
     identities = (
-        *((jid, AgentRole.VETERINARY) for jid in config.jids("veterinary", config.veterinary_agents)),
-        *((jid, AgentRole.LOGISTICS) for jid in config.jids("logistics", config.logistics_agents)),
-        *((jid, AgentRole.FEEDING) for jid in config.jids("feeding", config.feeding_agents)),
+        *(
+            (jid, AgentRole.VETERINARY)
+            for jid in config.jids("veterinary", config.veterinary_agents)
+        ),
+        *(
+            (jid, AgentRole.LOGISTICS)
+            for jid in config.jids("logistics", config.logistics_agents)
+        ),
+        *(
+            (jid, AgentRole.FEEDING)
+            for jid in config.jids("feeding", config.feeding_agents)
+        ),
     )
     staging_positions = (
         Position(1, 1),
@@ -105,9 +217,20 @@ def build_environment(config: SimulationConfig, food: int, medicine: int) -> Env
     return world
 
 
-async def _wait_until_one_finishes(agents, timeout_seconds: float) -> None:
+def _workflow_outcomes(agents) -> dict[str, str]:
+    outcomes: dict[str, str] = {}
+    for agent in agents:
+        outcomes.update(agent.workflow_outcomes)
+    return outcomes
+
+
+async def _wait_for_workflows(
+    agents,
+    task_ids: frozenset[str],
+    timeout_seconds: float,
+) -> None:
     async def wait() -> None:
-        while not any(agent.workflow_done.is_set() for agent in agents):
+        while not task_ids.issubset(_workflow_outcomes(agents)):
             await asyncio.sleep(0.05)
 
     await asyncio.wait_for(wait(), timeout=timeout_seconds)
@@ -115,16 +238,21 @@ async def _wait_until_one_finishes(agents, timeout_seconds: float) -> None:
 
 async def execute_simulation(
     config: SimulationConfig = SimulationConfig(),
-    food: int = 2,
-    medicine: int = 1,
-    timeout_seconds: float = 30.0,
+    food: int | None = None,
+    medicine: int | None = None,
+    timeout_seconds: float = 60.0,
 ) -> SimulationResult:
-    world = build_environment(config, food, medicine)
+    food_quantity = config.animal_count if food is None else food
+    medicine_quantity = config.animal_count if medicine is None else medicine
+    world = build_environment(config, food_quantity, medicine_quantity)
+    cases = case_definitions(config)
     activity_log = ActivityLog()
     message_trace = MessageTrace()
     feeding_jids = config.jids("feeding", config.feeding_agents)
     logistics_jids = config.jids("logistics", config.logistics_agents)
     veterinary_jids = config.jids("veterinary", config.veterinary_agents)
+    bowl_positions = {case.bowl_id: case.position for case in cases}
+    cage_positions = {case.cage_id: case.position for case in cases}
 
     environment = EnvironmentAgent(
         ENVIRONMENT_JID,
@@ -144,6 +272,7 @@ async def execute_simulation(
             timeout_seconds,
             food_position=FOOD_POSITION,
             bowl_position=CAGE_POSITION,
+            bowl_positions=bowl_positions,
         )
         for jid in feeding_jids
     ]
@@ -158,6 +287,7 @@ async def execute_simulation(
             environment_jid=ENVIRONMENT_JID,
             cage_position=CAGE_POSITION,
             treatment_position=TREATMENT_POSITION,
+            cage_positions=cage_positions,
         )
         for jid in logistics_jids
     ]
@@ -194,26 +324,34 @@ async def execute_simulation(
         await asyncio.gather(
             *(
                 environment.publish_bowl_empty(
-                    jid,
-                    FEEDING_TASK_ID,
-                    CAGE_ID,
-                    BOWL_ID,
+                    logistics_jids[(index - 1) % len(logistics_jids)],
+                    case.feeding_task_id,
+                    case.cage_id,
+                    case.bowl_id,
                 )
-                for jid in logistics_jids
+                for index, case in enumerate(cases, start=1)
             ),
             *(
                 environment.publish_sick_animal(
-                    jid,
-                    MEDICAL_TASK_ID,
-                    ANIMAL_ID,
-                    CAGE_ID,
+                    veterinary_jids[(index - 1) % len(veterinary_jids)],
+                    case.medical_task_id,
+                    case.animal_id,
+                    case.cage_id,
                 )
-                for jid in veterinary_jids
+                for index, case in enumerate(cases, start=1)
             ),
         )
         await asyncio.gather(
-            _wait_until_one_finishes(logistics_agents, timeout_seconds),
-            _wait_until_one_finishes(veterinary_agents, timeout_seconds),
+            _wait_for_workflows(
+                logistics_agents,
+                frozenset(case.feeding_task_id for case in cases),
+                timeout_seconds,
+            ),
+            _wait_for_workflows(
+                veterinary_agents,
+                frozenset(case.medical_task_id for case in cases),
+                timeout_seconds,
+            ),
         )
     except TimeoutError:
         error = f"integrated simulation timed out after {timeout_seconds:g} seconds"
@@ -224,14 +362,26 @@ async def execute_simulation(
             await agent.stop()
 
     snapshot = world.snapshot()
-    bowl = next(item for item in snapshot.bowls if item.id == BOWL_ID)
     stock = next(item for item in snapshot.food_stocks if item.id == FOOD_STOCK_ID)
-    animal = next(item for item in snapshot.animals if item.id == ANIMAL_ID)
     medicine_stock = next(
         item for item in snapshot.medicine_stocks if item.id == MEDICINE_STOCK_ID
     )
-    feeding_task = next(item for item in snapshot.tasks if item.id == FEEDING_TASK_ID)
-    medical_task = next(item for item in snapshot.tasks if item.id == MEDICAL_TASK_ID)
+    feeding_tasks = tuple(
+        task for task in snapshot.tasks if task.kind is TaskType.REFILL_BOWL
+    )
+    medical_tasks = tuple(
+        task for task in snapshot.tasks if task.kind is TaskType.TREAT_ANIMAL
+    )
+    completed_feeding = sum(
+        task.status is TaskStatus.COMPLETED for task in feeding_tasks
+    )
+    completed_medical = sum(
+        task.status is TaskStatus.COMPLETED for task in medical_tasks
+    )
+    healthy_animals = sum(
+        animal.health is HealthStatus.HEALTHY for animal in snapshot.animals
+    )
+    filled_bowls = sum(bowl.level == bowl.capacity for bowl in snapshot.bowls)
     max_occupancy = max(item.max_observed for item in snapshot.area_access)
     active_occupancy = sum(len(item.occupants) for item in snapshot.area_access)
     claims = tuple(
@@ -242,32 +392,34 @@ async def execute_simulation(
     conversation_ids = tuple(
         sorted({record.conversation_id for record in message_trace.records})
     )
-    feeding_status = next(
-        (
-            agent.workflow_status
-            for agent in logistics_agents
-            if agent.workflow_status is not None
-        ),
-        "not_completed",
+    feeding_outcomes = _workflow_outcomes(logistics_agents)
+    medical_outcomes = _workflow_outcomes(veterinary_agents)
+    feeding_status = (
+        "completed"
+        if all(
+            feeding_outcomes.get(case.feeding_task_id) == "completed"
+            for case in cases
+        )
+        else "failed"
     )
-    medical_status = next(
-        (
-            agent.workflow_status
-            for agent in veterinary_agents
-            if agent.workflow_status is not None
-        ),
-        "not_completed",
+    medical_status = (
+        "completed"
+        if all(
+            medical_outcomes.get(case.medical_task_id) == "completed"
+            for case in cases
+        )
+        else "failed"
     )
     success = (
         error is None
         and feeding_status == "completed"
         and medical_status == "completed"
-        and feeding_task.status is TaskStatus.COMPLETED
-        and medical_task.status is TaskStatus.COMPLETED
-        and bowl.level == bowl.capacity
-        and stock.quantity == food - 1
-        and animal.health is HealthStatus.HEALTHY
-        and medicine_stock.quantity == medicine - 1
+        and completed_feeding == config.animal_count
+        and completed_medical == config.animal_count
+        and filled_bowls == config.animal_count
+        and healthy_animals == config.animal_count
+        and stock.quantity == food_quantity - config.animal_count
+        and medicine_stock.quantity == medicine_quantity - config.animal_count
         and max_occupancy <= 2
         and active_occupancy == 0
     )
@@ -281,7 +433,10 @@ async def execute_simulation(
             *(
                 reason
                 for agent in logistics_agents
-                for reason in (*agent.failure_reasons.values(), *agent.transport_failures.values())
+                for reason in (
+                    *agent.failure_reasons.values(),
+                    *agent.transport_failures.values(),
+                )
             ),
             *(
                 reason
@@ -298,12 +453,23 @@ async def execute_simulation(
         veterinary_agents=config.veterinary_agents,
         logistics_agents=config.logistics_agents,
         feeding_agents=config.feeding_agents,
+        animal_count=len(snapshot.animals),
+        cage_count=len(snapshot.cages),
+        bowl_count=len(snapshot.bowls),
+        feeding_task_count=len(feeding_tasks),
+        medical_task_count=len(medical_tasks),
+        completed_feeding_tasks=completed_feeding,
+        completed_medical_tasks=completed_medical,
+        healthy_animals=healthy_animals,
+        filled_bowls=filled_bowls,
         feeding_status=feeding_status,
         medical_status=medical_status,
-        bowl_level=bowl.level,
         food_remaining=stock.quantity,
-        animal_health=animal.health.value,
         medicine_remaining=medicine_stock.quantity,
+        animal_conditions=tuple(
+            f"{animal.id}:{animal.species}:{animal.condition}"
+            for animal in snapshot.animals
+        ),
         max_room_occupancy=max_occupancy,
         room_capacity=2,
         active_room_occupancy_at_end=active_occupancy,
@@ -317,9 +483,9 @@ async def execute_simulation(
 
 def run_simulation(
     config: SimulationConfig = SimulationConfig(),
-    food: int = 2,
-    medicine: int = 1,
-    timeout_seconds: float = 30.0,
+    food: int | None = None,
+    medicine: int | None = None,
+    timeout_seconds: float = 60.0,
 ) -> SimulationResult:
     holder: dict[str, SimulationResult] = {}
 
@@ -349,8 +515,13 @@ def print_result(result: SimulationResult, as_json: bool = False) -> None:
             f"logistics={result.logistics_agents} feeding={result.feeding_agents}"
         )
         print(
-            f"feeding={result.feeding_status} medical={result.medical_status} "
-            f"animal={result.animal_health} bowl={result.bowl_level}/1"
+            f"animals={result.animal_count} cages={result.cage_count} "
+            f"bowls={result.bowl_count}"
+        )
+        print(
+            f"feeding={result.completed_feeding_tasks}/{result.feeding_task_count} "
+            f"medical={result.completed_medical_tasks}/{result.medical_task_count} "
+            f"healthy={result.healthy_animals}/{result.animal_count}"
         )
         print(
             f"max-room-occupancy={result.max_room_occupancy}/"

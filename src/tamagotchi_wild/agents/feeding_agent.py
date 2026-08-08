@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Mapping
 
 import agentspeak as asp
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
@@ -144,7 +145,10 @@ class FeedingAgent(ProjectBDIAgent):
 
             fill_result = await self._perform_in_area(
                 self.agent.cage_area_id,
-                self.agent.bowl_position,
+                self.agent.bowl_positions.get(
+                    self.bowl_id,
+                    self.agent.bowl_position,
+                ),
                 ActionType.FILL_BOWL,
                 self.bowl_id,
                 1,
@@ -236,6 +240,7 @@ class FeedingAgent(ProjectBDIAgent):
         bowl_position: Position = Position(2, 4),
         food_area_id: str = "food-storage",
         cage_area_id: str = "cage-area",
+        bowl_positions: Mapping[str, Position] | None = None,
     ) -> None:
         self.environment_jid = environment_jid
         self.food_stock_id = food_stock_id
@@ -244,6 +249,7 @@ class FeedingAgent(ProjectBDIAgent):
         self.timeout_seconds = timeout_seconds
         self.food_position = food_position
         self.bowl_position = bowl_position
+        self.bowl_positions = dict(bowl_positions or {})
         self.food_area_id = food_area_id
         self.cage_area_id = cage_area_id
         self.agent_label = jid.split("@", 1)[0]

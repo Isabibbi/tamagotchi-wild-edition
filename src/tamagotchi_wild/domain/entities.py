@@ -84,10 +84,26 @@ class Animal:
     position: Position
     health: HealthStatus = HealthStatus.HEALTHY
     carried_by: str | None = None
+    condition: str = "none"
+    cage_id: str | None = None
 
     def __post_init__(self) -> None:
         _require_identifier(self.id, "animal id")
         _require_identifier(self.species, "animal species")
+        _require_identifier(self.condition, "animal condition")
+
+
+@dataclass(frozen=True, slots=True)
+class Cage:
+    id: str
+    position: Position
+    animal_id: str
+    bowl_id: str
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.id, "cage id")
+        _require_identifier(self.animal_id, "cage animal id")
+        _require_identifier(self.bowl_id, "cage bowl id")
 
 
 @dataclass(frozen=True, slots=True)

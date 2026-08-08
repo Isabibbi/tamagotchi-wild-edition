@@ -24,9 +24,9 @@ Ogni istanza usa un JID distinto, per esempio `feeding_01@localhost` e
 
 ## Assegnazione univoca
 
-Le percezioni vengono inviate a tutti gli agenti candidati. Ciascun candidato
-prova a reclamare atomicamente una fase presso l'Environment. Il primo ottiene
-il task; gli altri ricevono un rifiuto e non producono effetti sul mondo.
+I task vengono distribuiti round-robin tra gli agenti del ruolo corretto. Ogni
+assegnatario deve comunque reclamare atomicamente la fase presso l'Environment,
+che impedisce a un altro agente di eseguire lo stesso lavoro.
 
 Le fasi reclamabili sono:
 
@@ -38,9 +38,9 @@ Le fasi reclamabili sono:
 | `transport_outbound` | Logistics |
 | `transport_return` | Logistics |
 
-Un nuovo tentativo dello stesso vincitore è idempotente. Un altro agente non può
-sottrargli la fase. Questo impedisce consumi doppi di cibo o medicinali e
-trasporti duplicati.
+Un nuovo tentativo dello stesso assegnatario è idempotente. Un altro agente non
+può sottrargli la fase. Questo impedisce consumi doppi di cibo o medicinali e
+trasporti duplicati, mentre il round-robin utilizza realmente l'intero gruppo.
 
 ## Accesso concorrente alle aree
 
@@ -61,20 +61,21 @@ capienza e massimo osservato per consentire test e futura visualizzazione.
 
 ## Simulazione integrata
 
-All'avvio vengono create due attività distinte:
+Per ogni animale vengono create due attività distinte:
 
 - ciotola vuota, destinata ai Logistics;
 - animale malato, destinato ai Veterinary.
 
-Le due percezioni vengono pubblicate insieme con `asyncio.gather`. Da quel
+Tutte le percezioni vengono pubblicate insieme con `asyncio.gather`. Da quel
 momento i workflow BDI avanzano indipendentemente e possono contendere le stesse
-aree. La simulazione termina soltanto quando entrambi risultano completati.
+aree. La simulazione termina soltanto quando tutti i task risultano conclusi.
 
 ## Criteri verificati
 
 - massimo 7 operatori configurabili, oltre a Environment;
+- da 1 a 40 animali configurabili con gabbie, ciotole e task dedicati;
 - entrambi i workflow nella stessa esecuzione;
 - una sola assegnazione vincente per ogni fase;
 - nessuna area oltre 2 accessi simultanei;
 - tutte le aree rilasciate al termine;
-- animale sano in gabbia e ciotola piena.
+- tutti gli animali sani nelle proprie gabbie e tutte le ciotole piene.

@@ -93,7 +93,8 @@ async def acquire_area(
             area_id,
             destination=destination,
         )
-        if result.accepted or "is at capacity" not in result.reason:
+        retryable = "is at capacity" in result.reason or "is busy with task" in result.reason
+        if result.accepted or not retryable:
             return result
         if asyncio.get_running_loop().time() >= deadline:
             return ActionResponse(

@@ -13,22 +13,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--veterinary-agents", type=int, default=2)
     parser.add_argument("--logistics-agents", type=int, default=3)
     parser.add_argument("--feeding-agents", type=int, default=2)
-    parser.add_argument("--food", type=int, default=2)
-    parser.add_argument("--medicine", type=int, default=1)
-    parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--animals", type=int, default=1)
+    parser.add_argument("--food", type=int)
+    parser.add_argument("--medicine", type=int)
+    parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
-    if args.food < 0 or args.medicine < 0:
+    if (args.food is not None and args.food < 0) or (
+        args.medicine is not None and args.medicine < 0
+    ):
         raise SystemExit("resource quantities must not be negative")
     try:
         config = SimulationConfig(
             veterinary_agents=args.veterinary_agents,
             logistics_agents=args.logistics_agents,
             feeding_agents=args.feeding_agents,
+            animal_count=args.animals,
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc

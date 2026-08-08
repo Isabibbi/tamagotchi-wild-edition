@@ -6,7 +6,8 @@ Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 > **Stato:** alimentazione e cure mediche sono integrate in un'unica simulazione
 > SPADE-BDI. Il numero degli operatori si decide all'avvio, fino a un massimo di
 > 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
-> massimo 2 operatori contemporaneamente.
+> massimo 2 operatori contemporaneamente. Anche il numero degli animali è
+> configurabile: ogni animale genera automaticamente gabbia, ciotola e due task.
 
 ## Agenti
 
@@ -48,7 +49,8 @@ Output finale atteso:
 ```text
 SIMULATION OK
 operators=7 veterinary=2 logistics=3 feeding=2
-feeding=completed medical=completed animal=healthy bowl=1/1
+animals=1 cages=1 bowls=1
+feeding=1/1 medical=1/1 healthy=1/1
 max-room-occupancy=1/2
 ```
 
@@ -57,24 +59,39 @@ messaggi. Non può mai superare `2`.
 
 ## Configurazione a runtime
 
-Esempio con un agente per ruolo:
+Esempio con cinque animali e cinque casi completi:
 
 ```powershell
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild `
-  --veterinary-agents 1 `
-  --logistics-agents 1 `
-  --feeding-agents 1
+  --veterinary-agents 2 `
+  --logistics-agents 3 `
+  --feeding-agents 2 `
+  --animals 5
 ```
 
 Ogni ruolo deve avere almeno un agente, perché entrambi i flussi sono sempre
 attivi. La somma dei tre valori deve essere al massimo 7. Per esempio,
 `2 + 4 + 2 = 8` viene rifiutato prima di avviare SPADE.
 
+`--animals N` accetta da 1 a 40. Con `--animals 5` vengono creati:
+
+```text
+5 animali con condizioni differenti
+5 gabbie nella stessa Cage Area
+5 ciotole
+5 task Feeding
+5 task Medical
+```
+
+Se non vengono specificati, cibo e medicinali iniziali sono automaticamente
+uguali al numero degli animali.
+
 Opzioni aggiuntive:
 
 ```text
---food N       quantità iniziale di cibo
---medicine N   quantità iniziale di medicinali
+--animals N    numero di animali e casi completi, da 1 a 40
+--food N       quantità iniziale di cibo; default uguale agli animali
+--medicine N   quantità iniziale di medicinali; default uguale agli animali
 --timeout N    timeout in secondi
 --json         risultato finale in JSON
 ```
@@ -85,10 +102,10 @@ Opzioni aggiuntive:
 & .\.my_sdai\Scripts\python.exe -m pytest
 ```
 
-I test verificano la configurazione fino a 7 operatori, l'assegnazione univoca
-dei task, il limite di 2 accessi e l'esecuzione end-to-end simultanea dei due
-flussi. Il server XMPP integrato viene avviato e arrestato automaticamente; non
-servono Internet né credenziali esterne.
+I test verificano la configurazione fino a 7 operatori e 40 animali,
+l'assegnazione univoca dei task, il limite di 2 accessi e un'esecuzione
+end-to-end con 5 animali e 10 task. Il server XMPP integrato viene avviato e
+arrestato automaticamente; non servono Internet né credenziali esterne.
 
 ## Struttura principale
 

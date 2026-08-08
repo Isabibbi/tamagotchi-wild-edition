@@ -5,8 +5,9 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 ## Stato di avanzamento
 
 **Fasi 4 e 5 completate:** alimentazione e cure mediche vengono eseguite insieme
-da un massimo di 7 operatori configurabili. L'Environment assegna ogni fase a un
-solo agente e limita a 2 gli accessi contemporanei a ciascuna area.
+da un massimo di 7 operatori configurabili. Anche gli animali sono configurabili
+da 1 a 40, con gabbia, ciotola e due task dedicati. L'Environment assegna ogni
+fase a un solo agente e limita a 2 gli accessi contemporanei a ciascuna area.
 
 La visualizzazione grafica resta l'incremento successivo.
 
