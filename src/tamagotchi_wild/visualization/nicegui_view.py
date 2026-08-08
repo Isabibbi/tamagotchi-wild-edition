@@ -7,16 +7,18 @@ from html import escape
 
 
 CELL_SIZE = 64
-GRID_WIDTH = 12 * CELL_SIZE
-GRID_HEIGHT = 8 * CELL_SIZE
+GRID_WIDTH = 14 * CELL_SIZE
+GRID_HEIGHT = 10 * CELL_SIZE
 
 AREA_COLORS = {
+    "corridor": "#e2e8f0",
     "food_storage": "#fef3c7",
     "medical_storage": "#dbeafe",
     "cage_area": "#dcfce7",
     "treatment_room": "#ffe4e6",
 }
 AREA_LABELS = {
+    "corridor": "CORRIDOR",
     "food_storage": "FOOD STORAGE",
     "medical_storage": "MEDICAL STORAGE",
     "cage_area": "CAGE AREA",
@@ -33,6 +35,15 @@ ROLE_LABELS = {
     "feeding": "Feeding",
 }
 ROLE_INITIALS = {"veterinary": "V", "logistics": "L", "feeding": "F"}
+PATH_COLORS = (
+    "#e11d48",
+    "#2563eb",
+    "#16a34a",
+    "#9333ea",
+    "#ea580c",
+    "#0891b2",
+    "#ca8a04",
+)
 HEALTH_COLORS = {
     "sick": "#dc2626",
     "in_outbound_transport": "#9333ea",
@@ -97,14 +108,12 @@ def snapshot_metrics(snapshot: dict) -> DashboardMetrics:
         medicine_remaining=(
             snapshot["medicine"][0]["quantity"] if snapshot["medicine"] else 0
         ),
-        active_operators=sum(
-            len(access["occupants"]) for access in snapshot["area_access"]
-        ),
+        active_operators=len(snapshot.get("navigation", ())),
     )
 
 
 def render_grid_svg(snapshot: dict) -> str:
-    """Disegna solo gli operatori con un permesso di accesso attivo."""
+    """Disegna operatori, target e percorsi A* senza modificare lo stato."""
 
     area_by_cell = {
         (cell["x"], cell["y"]): area["kind"]
@@ -116,6 +125,10 @@ def render_grid_svg(snapshot: dict) -> str:
         for access in snapshot["area_access"]
         for agent_id in access["occupants"]
     }
+    navigation_by_agent = {
+        item["agent_id"]: item for item in snapshot.get("navigation", ())
+    }
+    path_colors = _agent_path_colors(snapshot)
     agents_by_id = {agent["id"]: agent for agent in snapshot["agents"]}
     chunks = [
         f'<svg viewBox="0 0 {GRID_WIDTH} {GRID_HEIGHT}" '
@@ -141,6 +154,38 @@ def render_grid_svg(snapshot: dict) -> str:
             'font-family="Inter,Segoe UI,sans-serif" font-size="9" '
             'font-weight="800" fill="#334155" letter-spacing="0.8">'
             f'{AREA_LABELS[area["kind"]]}</text>'
+        )
+
+    for agent in snapshot["agents"]:
+        navigation = navigation_by_agent.get(agent["id"])
+        if navigation is None:
+            continue
+        color = path_colors[agent["id"]]
+        target = navigation["target"]
+        path = navigation["path"]
+        points = [agent["position"], *path]
+        if len(points) > 1:
+            point_text = " ".join(
+                f'{item["x"] * CELL_SIZE + CELL_SIZE / 2},'
+                f'{item["y"] * CELL_SIZE + CELL_SIZE / 2}'
+                for item in points
+            )
+            chunks.append(
+                f'<polyline points="{point_text}" fill="none" stroke="{color}" '
+                'stroke-width="4" stroke-linecap="round" stroke-linejoin="round" '
+                'stroke-dasharray="7 5" opacity="0.88"/>'
+            )
+        target_x = target["x"] * CELL_SIZE
+        target_y = target["y"] * CELL_SIZE
+        chunks.append(
+            f'<g><title>{escape(agent["id"])} target '
+            f'({target["x"]}, {target["y"]})</title>'
+            f'<rect x="{target_x + 5}" y="{target_y + 5}" '
+            f'width="{CELL_SIZE - 10}" height="{CELL_SIZE - 10}" rx="9" '
+            f'fill="{color}" fill-opacity="0.10" stroke="{color}" '
+            'stroke-width="3" stroke-dasharray="6 4"/>'
+            f'<circle cx="{target_x + CELL_SIZE / 2}" '
+            f'cy="{target_y + CELL_SIZE / 2}" r="5" fill="{color}"/></g>'
         )
 
     for cage in snapshot["cages"]:
@@ -198,7 +243,7 @@ def render_grid_svg(snapshot: dict) -> str:
         )
 
     agents_per_cell: dict[tuple[int, int], int] = {}
-    for agent in (item for item in snapshot["agents"] if item["id"] in active_ids):
+    for agent in snapshot["agents"]:
         position = agent["position"]
         cell = (position["x"], position["y"])
         local_index = agents_per_cell.get(cell, 0)
@@ -206,14 +251,25 @@ def render_grid_svg(snapshot: dict) -> str:
         x = position["x"] * CELL_SIZE + 15 + local_index * 23
         y = position["y"] * CELL_SIZE + 18
         color = ROLE_COLORS[agent["role"]]
+        path_color = path_colors[agent["id"]]
+        navigation = navigation_by_agent.get(agent["id"])
+        state = (
+            f'target ({navigation["target"]["x"]}, {navigation["target"]["y"]})'
+            if navigation
+            else "senza target"
+        )
+        access_state = "accesso attivo" if agent["id"] in active_ids else "in transito"
         title = escape(
-            f'{agent["id"]} · {ROLE_LABELS[agent["role"]]} · accesso attivo'
+            f'{agent["id"]} · {ROLE_LABELS[agent["role"]]} · {access_state} · {state}'
         )
         chunks.extend(
             (
                 f'<g><title>{title}</title>',
-                f'<circle cx="{x}" cy="{y}" r="12" fill="{color}" '
-                'stroke="#facc15" stroke-width="3"/>',
+                f'<circle cx="{x}" cy="{y}" r="13" fill="#ffffff" '
+                f'stroke="{path_color}" stroke-width="4"/>',
+                f'<circle cx="{x}" cy="{y}" r="10" fill="{color}" '
+                f'stroke="{"#facc15" if agent["id"] in active_ids else "#ffffff"}" '
+                'stroke-width="2"/>',
                 f'<text x="{x}" y="{y + 4}" text-anchor="middle" '
                 'font-family="Inter,Segoe UI,sans-serif" font-size="10" '
                 f'font-weight="800" fill="#ffffff">{ROLE_INITIALS[agent["role"]]}</text></g>',
@@ -230,14 +286,30 @@ def render_operator_roster(snapshot: dict) -> str:
         for access in snapshot["area_access"]
         for agent_id in access["occupants"]
     }
+    navigation_by_agent = {
+        item["agent_id"]: item for item in snapshot.get("navigation", ())
+    }
+    path_colors = _agent_path_colors(snapshot)
     cards = []
     for agent in snapshot["agents"]:
         area = area_for_agent.get(agent["id"])
-        active = area is not None
-        state = f"In attività · {area}" if active else "In attesa"
+        navigation = navigation_by_agent.get(agent["id"])
+        active = area is not None or navigation is not None
+        if navigation is not None and navigation["status"] != "arrived":
+            target = navigation["target"]
+            state = (
+                f'{navigation["status"].capitalize()} → '
+                f'({target["x"]}, {target["y"]}) · '
+                f'{len(navigation["path"])} celle'
+            )
+        elif area is not None:
+            state = f"In attività · {area}"
+        else:
+            state = "In attesa"
         state_class = "staff-active" if active else "staff-idle"
         cards.append(
-            f'<div class="staff-chip {state_class}">'
+            f'<div class="staff-chip {state_class}" '
+            f'style="border-left:5px solid {path_colors[agent["id"]]}">'
             f'<span class="staff-dot" style="background:{ROLE_COLORS[agent["role"]]}">'
             f'{ROLE_INITIALS[agent["role"]]}</span>'
             f'<span><strong>{escape(agent["id"])}</strong>'
@@ -248,7 +320,7 @@ def render_operator_roster(snapshot: dict) -> str:
 
 def render_area_access(snapshot: dict) -> str:
     cards = []
-    for access in snapshot["area_access"]:
+    for access in snapshot.get("room_occupancy", snapshot["area_access"]):
         current = len(access["occupants"])
         capacity = access["capacity"]
         tone = "room-full" if current == capacity else "room-free"
@@ -260,6 +332,13 @@ def render_area_access(snapshot: dict) -> str:
             f'<b>{current}/{capacity}</b></div>'
         )
     return '<div class="room-access-grid">' + "".join(cards) + "</div>"
+
+
+def _agent_path_colors(snapshot: dict) -> dict[str, str]:
+    return {
+        agent["id"]: PATH_COLORS[index % len(PATH_COLORS)]
+        for index, agent in enumerate(sorted(snapshot["agents"], key=lambda item: item["id"]))
+    }
 
 
 def render_placeholder_svg() -> str:

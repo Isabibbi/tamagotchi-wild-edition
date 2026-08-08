@@ -5,8 +5,8 @@ Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 
 > **Stato:** alimentazione e cure mediche sono integrate in un'unica simulazione
 > SPADE-BDI. Il numero degli operatori si decide all'avvio, fino a un massimo di
-> 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
-> massimo 2 operatori contemporaneamente. Anche il numero degli animali è
+> 7; l'Environment Agent non rientra in questo limite. Ogni stanza operativa
+> ammette al massimo 2 operatori contemporaneamente. Anche il numero degli animali è
 > configurabile: ogni animale genera automaticamente gabbia, ciotola e due task.
 > È disponibile una GUI live con griglia e cronologia degli eventi SPADE.
 
@@ -38,6 +38,11 @@ stessa esecuzione e avanzano in modo concorrente tramite messaggi SPADE/XMPP.
 - per entrare in un'area operativa occorre un permesso dell'Environment;
 - il terzo agente attende e riprova finché uno dei due posti viene rilasciato;
 - il limite di 2 vale per Food Storage, Medical Storage, Cage Area e Treatment Room.
+- ogni spostamento avanza di una sola cella lungo un percorso calcolato con A*;
+- le celle occupate dagli altri operatori sono ostacoli dinamici e il percorso
+  viene ricalcolato durante il movimento;
+- un corridoio neutro offre celle di attesa e impedisce agli operatori inattivi
+  di saturare le quattro stanze operative.
 
 ## Avvio
 
@@ -72,8 +77,10 @@ Per vedere la simulazione, usare lo stesso comando con `--gui`:
 
 Il browser si apre su una dashboard NiceGUI locale e mostra:
 
-- a sinistra, la griglia 12×8 con aree, operatori, animali, gabbie e ciotole;
-- in giallo, il bordo degli operatori che occupano una stanza;
+- a sinistra, la griglia 14×10 con stanze, corridoio, operatori, animali,
+  gabbie e ciotole;
+- per ogni operatore, un colore distinto identifica il tragitto A* e la cella target;
+- in giallo, il bordo interno degli operatori che occupano una stanza;
 - a destra, risorse, task completati e occupazione corrente delle aree;
 - nella cronologia, percezioni, richieste, movimenti, azioni e attese;
 - alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
@@ -137,7 +144,8 @@ Opzioni aggiuntive:
 ```
 
 I test verificano la configurazione fino a 7 operatori e 40 animali,
-l'assegnazione univoca dei task, il limite di 2 accessi e un'esecuzione
+l'assegnazione univoca dei task, A*, i movimenti atomici, il limite fisico di 2
+operatori nelle stanze e un'esecuzione
 end-to-end con 5 animali e 10 task. I test dedicati avviano anche il
 Visualization Agent, verificano lo stream SPADE e i renderer usati da NiceGUI.
 Il server XMPP integrato viene avviato e arrestato automaticamente; non servono
@@ -150,7 +158,7 @@ src/tamagotchi_wild/
 ├── agents/          # agenti SPADE-BDI, Environment e Visualization
 ├── bdi/             # piani AgentSpeak dei tre ruoli
 ├── domain/          # entità e comandi del dominio
-├── environment/     # stato autorevole, claim atomici e capacità
+├── environment/     # stato autorevole, A*, claim atomici e capacità
 ├── messaging/       # contratti JSON e metadata FIPA
 ├── visualization/   # proiezione read-only, SVG e cronologia
 ├── gui.py           # pagina e componenti NiceGUI
@@ -161,4 +169,5 @@ src/tamagotchi_wild/
 ```
 
 La progettazione e le fasi incrementali sono descritte nella cartella
-[`docs`](docs/).
+[`docs`](docs/). L'implementazione della navigazione è documentata in
+[`docs/A_star.md`](docs/A_star.md).

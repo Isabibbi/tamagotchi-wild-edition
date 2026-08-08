@@ -10,7 +10,7 @@ from tamagotchi_wild.visualization import (
 )
 
 
-def test_svg_shows_only_agents_with_an_active_room_access() -> None:
+def test_svg_shows_all_agents_and_the_active_astar_route() -> None:
     config = SimulationConfig(
         veterinary_agents=1,
         logistics_agents=1,
@@ -30,9 +30,13 @@ def test_svg_shows_only_agents_with_an_active_room_access() -> None:
     svg = render_grid_svg(_payload(world))
 
     assert accepted.accepted is True
+    assert accepted.reason == "moving"
     assert "feeding_01" in svg
-    assert "logistics_01" not in svg
-    assert "veterinary_01" not in svg
+    assert "logistics_01" in svg
+    assert "veterinary_01" in svg
+    assert "feeding_01 target" in svg
+    assert "<polyline" in svg
+    assert 'stroke="#e11d48"' in svg
     assert "Griglia del centro di recupero" in svg
 
 

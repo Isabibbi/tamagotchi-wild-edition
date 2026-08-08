@@ -23,6 +23,12 @@ def describe_environment_event(event: dict) -> str:
     task = event.get("task_id", "")
     detail = event.get("detail", "")
     requested_action = event.get("requested_action", "")
+    destination = event.get("destination")
+    movement = (
+        f"{actor} avanza di una cella verso ({destination['x']}, {destination['y']})"
+        if isinstance(destination, dict)
+        else f"{actor} avanza di una cella"
+    )
     prefix = f"#{sequence:03d}" if isinstance(sequence, int) else "#---"
     rejection_description = (
         f"{actor} attende un posto in {target} per il task {task}"
@@ -46,7 +52,7 @@ def describe_environment_event(event: dict) -> str:
         "pickup_treated_animal": f"{actor} preleva {target} dopo la cura",
         "return_animal_to_cage": f"{actor} riporta {target} nella sua gabbia",
         "fail_task": f"{actor} conclude {task} con un rifiuto",
-        "move_agent": f"{actor} si sposta verso {target}",
+        "move_agent": movement,
         "action_rejected": rejection_description,
     }
     fallback = f"{actor}: {action} su {target}"

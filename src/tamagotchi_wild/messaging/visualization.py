@@ -202,6 +202,26 @@ def _snapshot_payload(snapshot: WorldSnapshot) -> dict[str, Any]:
             }
             for access in snapshot.area_access
         ],
+        "room_occupancy": [
+            {
+                "area_id": occupancy.area_id,
+                "capacity": occupancy.capacity,
+                "occupants": list(occupancy.occupants),
+                "max_observed": occupancy.max_observed,
+            }
+            for occupancy in snapshot.room_occupancy
+        ],
+        "navigation": [
+            {
+                "agent_id": navigation.agent_id,
+                "target": _position(navigation.target),
+                "path": [_position(cell) for cell in navigation.path],
+                "status": navigation.status,
+                "wait_cycles": navigation.wait_cycles,
+                "replans": navigation.replans,
+            }
+            for navigation in snapshot.navigation
+        ],
         "food": [
             {"id": stock.id, "quantity": stock.quantity}
             for stock in snapshot.food_stocks

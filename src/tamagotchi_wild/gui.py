@@ -184,7 +184,7 @@ class RescueCenterDashboard:
                         "text-lg font-black text-slate-900"
                     )
                     ui.label(
-                        "Sulla griglia compaiono solo gli operatori con accesso attivo."
+                        "Ogni operatore mostra target e percorso A* con un colore univoco."
                     ).classes("text-xs text-slate-500")
                 self.event_label = ui.label("Snapshot iniziale in arrivo").classes(
                     "text-xs font-bold text-green-700"
@@ -198,7 +198,7 @@ class RescueCenterDashboard:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             ui.label("Staff operativo").classes("text-lg font-black text-slate-900")
             ui.label(
-                "Bordo giallo: accesso alla stanza autorizzato. Gli altri attendono."
+                "Il colore laterale identifica percorso e target; il bordo giallo indica l'accesso operativo."
             ).classes("text-xs text-slate-500")
             self.staff_html = ui.html(
                 '<div class="text-slate-400 text-sm">In attesa degli agenti…</div>',
@@ -224,10 +224,10 @@ class RescueCenterDashboard:
     def _build_access_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Capacità delle aree").classes(
+                ui.label("Occupazione fisica delle aree").classes(
                     "text-lg font-black text-slate-900"
                 )
-                self.active_value = ui.badge("0 attivi", color="green-700")
+                self.active_value = ui.badge("0 con target", color="green-700")
             self.access_html = ui.html(
                 '<div class="text-slate-400 text-sm">In attesa dello stato…</div>',
                 sanitize=False,
@@ -266,7 +266,7 @@ class RescueCenterDashboard:
         self.grid_html.set_content(render_grid_svg(update.snapshot))
         self.staff_html.set_content(render_operator_roster(update.snapshot))
         self.access_html.set_content(render_area_access(update.snapshot))
-        self.active_value.set_text(f"{metrics.active_operators} attivi")
+        self.active_value.set_text(f"{metrics.active_operators} con target")
         self.healthy_value.set_text(
             f"{metrics.healthy_animals}/{metrics.animal_count}"
         )

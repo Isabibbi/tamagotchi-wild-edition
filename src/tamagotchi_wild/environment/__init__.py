@@ -7,13 +7,16 @@ from tamagotchi_wild.environment.errors import (
     UnknownEntityError,
 )
 from tamagotchi_wild.environment.state import (
+    AgentNavigationState,
     AreaAccessState,
     EnvironmentEvent,
     EnvironmentState,
     WorldSnapshot,
 )
+from tamagotchi_wild.environment.pathfinding import astar_path
 
 __all__ = [
+    "AgentNavigationState",
     "AreaAccessState",
     "DuplicateEntityError",
     "EnvironmentError",
@@ -22,4 +25,5 @@ __all__ = [
     "InvalidActionError",
     "UnknownEntityError",
     "WorldSnapshot",
+    "astar_path",
 ]

@@ -24,6 +24,7 @@ class Position:
 
 
 class AreaType(StrEnum):
+    CORRIDOR = "corridor"
     FOOD_STORAGE = "food_storage"
     MEDICAL_STORAGE = "medical_storage"
     CAGE_AREA = "cage_area"

@@ -345,7 +345,7 @@ class VeterinaryAgent(ProjectBDIAgent):
         message_trace: MessageTrace,
         timeout_seconds: float = 10.0,
         asl_file: Path = DEFAULT_ASL,
-        medicine_position: Position = Position(6, 1),
+        medicine_position: Position = Position(8, 1),
         medical_area_id: str = "medical-storage",
         treatment_area_id: str = "treatment-room",
     ) -> None:

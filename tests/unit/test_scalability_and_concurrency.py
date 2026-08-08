@@ -82,7 +82,7 @@ def test_runtime_configuration_rejects_more_animals_than_cage_cells() -> None:
 
 def test_task_phase_is_claimed_by_exactly_one_agent() -> None:
     world = create_default_environment()
-    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 4)))
+    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 6)))
     world.register_task(Task("feeding_001", TaskType.REFILL_BOWL, "bowl_01"))
     world.register_agent(
         AgentState("feeding_01", AgentRole.FEEDING, Position(1, 1))
@@ -125,34 +125,66 @@ def test_task_phase_is_claimed_by_exactly_one_agent() -> None:
 
 def test_third_agent_cannot_enter_a_room_until_a_place_is_released() -> None:
     world = create_default_environment()
-    for index in range(1, 4):
+    for index, position in enumerate(
+        (Position(0, 4), Position(6, 4), Position(8, 4)),
+        start=1,
+    ):
         world.register_agent(
             AgentState(
                 f"logistics_{index:02d}",
                 AgentRole.LOGISTICS,
-                Position(index, 4),
+                position,
             )
         )
 
-    def access(agent_id: str, action: ActionType):
+    def access(agent_id: str, action: ActionType, destination=None):
         return world.apply(
             ActionCommand(
                 agent_id,
                 action,
                 "treatment-room",
-                destination=(Position(9, 4) if action is ActionType.ACQUIRE_AREA else None),
+                destination=destination,
                 task_id="capacity_test",
             )
         )
 
-    assert access("logistics_01", ActionType.ACQUIRE_AREA).accepted
-    assert access("logistics_02", ActionType.ACQUIRE_AREA).accepted
-    refused = access("logistics_03", ActionType.ACQUIRE_AREA)
+    def enter(agent_id: str):
+        for _ in range(50):
+            result = access(
+                agent_id,
+                ActionType.ACQUIRE_AREA,
+                Position(11, 6),
+            )
+            if result.reason != "moving":
+                return result
+        raise AssertionError(f"{agent_id} did not finish navigation")
+
+    assert enter("logistics_01").accepted
+    assert enter("logistics_02").accepted
+    refused = enter("logistics_03")
 
     assert refused.accepted is False
-    assert refused.reason == "area treatment-room is at capacity"
+    assert "path blocked" in refused.reason
     assert access("logistics_01", ActionType.RELEASE_AREA).accepted
-    assert access("logistics_03", ActionType.ACQUIRE_AREA).accepted
+    assert world.apply(
+        ActionCommand(
+            "logistics_01",
+            ActionType.MOVE_AGENT,
+            "logistics_01",
+            destination=Position(10, 6),
+            task_id="capacity_test",
+        )
+    ).accepted
+    assert world.apply(
+        ActionCommand(
+            "logistics_01",
+            ActionType.MOVE_AGENT,
+            "logistics_01",
+            destination=Position(9, 6),
+            task_id="capacity_test",
+        )
+    ).accepted
+    assert enter("logistics_03").accepted
 
     treatment = next(
         item
@@ -197,7 +229,7 @@ def test_agent_waits_and_retries_when_a_room_is_full(monkeypatch) -> None:
             FakeBehaviour(),
             "capacity_test",
             "treatment-room",
-            Position(9, 4),
+            Position(11, 6),
         )
     )
 

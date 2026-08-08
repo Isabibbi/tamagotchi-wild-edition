@@ -237,7 +237,7 @@ class FeedingAgent(ProjectBDIAgent):
         timeout_seconds: float = 10.0,
         asl_file: Path = DEFAULT_ASL,
         food_position: Position = Position(1, 1),
-        bowl_position: Position = Position(2, 4),
+        bowl_position: Position = Position(2, 6),
         food_area_id: str = "food-storage",
         cage_area_id: str = "cage-area",
         bowl_positions: Mapping[str, Position] | None = None,

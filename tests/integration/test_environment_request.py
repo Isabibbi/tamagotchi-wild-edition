@@ -25,14 +25,14 @@ def test_json_request_reaches_authoritative_environment() -> None:
         actor_id="logistics-001",
         target_id="logistics-001",
         requested_action=ActionType.MOVE_AGENT,
-        destination=Position(8, 4),
+        destination=Position(3, 4),
     )
 
     response = process_action_request(world, request.to_json())
 
     assert response.accepted is True
     assert response.task_id == "task-001"
-    assert world.snapshot().agents[0].position == Position(8, 4)
+    assert world.snapshot().agents[0].position == Position(3, 4)
 
 
 def test_invalid_json_is_rejected_without_an_event() -> None:
@@ -47,7 +47,7 @@ def test_invalid_json_is_rejected_without_an_event() -> None:
 
 def test_feeding_actions_are_applied_through_json_contracts() -> None:
     world = create_default_environment()
-    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 4)))
+    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 6)))
     world.register_food_stock(FoodStock("food_stock_01", Position(1, 1), 2))
     world.register_agent(
         AgentState("feeding_01", AgentRole.FEEDING, Position(1, 1))
@@ -83,16 +83,19 @@ def test_feeding_actions_are_applied_through_json_contracts() -> None:
             requested_action=ActionType.RELEASE_AREA,
         ).to_json(),
     )
-    cage_access = process_action_request(
-        world,
-        ActionRequest(
+    cage_request = ActionRequest(
             task_id="task_001",
             actor_id="feeding_01",
             target_id="cage-area",
             requested_action=ActionType.ACQUIRE_AREA,
-            destination=Position(2, 4),
-        ).to_json(),
-    )
+            destination=Position(2, 6),
+        )
+    for _ in range(30):
+        cage_access = process_action_request(world, cage_request.to_json())
+        if cage_access.reason != "moving":
+            break
+    else:
+        raise AssertionError("feeding_01 did not reach cage-area")
     fill_response = process_action_request(
         world,
         ActionRequest(

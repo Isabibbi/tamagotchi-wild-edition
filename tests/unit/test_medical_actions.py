@@ -19,8 +19,8 @@ ANIMAL_ID = "animal_001"
 LOGISTICS_ID = "logistics_01"
 VETERINARY_ID = "veterinary_01"
 MEDICINE_ID = "medicine_stock_01"
-CAGE_POSITION = Position(2, 4)
-TREATMENT_POSITION = Position(9, 4)
+CAGE_POSITION = Position(2, 6)
+TREATMENT_POSITION = Position(11, 6)
 
 
 def medical_world(medicine_quantity: int = 1):
@@ -29,7 +29,7 @@ def medical_world(medicine_quantity: int = 1):
         Animal(ANIMAL_ID, "fox", CAGE_POSITION, HealthStatus.SICK)
     )
     world.register_medicine_stock(
-        MedicineStock(MEDICINE_ID, Position(6, 1), medicine_quantity)
+        MedicineStock(MEDICINE_ID, Position(8, 1), medicine_quantity)
     )
     world.register_agent(
         AgentState(LOGISTICS_ID, AgentRole.LOGISTICS, CAGE_POSITION)
@@ -59,15 +59,18 @@ def command(
 
 
 def acquire(world, actor_id: str, area_id: str, position: Position) -> None:
-    result = world.apply(
-        command(
-            actor_id,
-            ActionType.ACQUIRE_AREA,
-            target_id=area_id,
-            destination=position,
+    for _ in range(40):
+        result = world.apply(
+            command(
+                actor_id,
+                ActionType.ACQUIRE_AREA,
+                target_id=area_id,
+                destination=position,
+            )
         )
-    )
-    assert result.accepted
+        if result.reason != "moving":
+            break
+    assert result.accepted and result.reason in {"accepted", "already_acquired"}
 
 
 def release(world, actor_id: str, area_id: str) -> None:
@@ -113,7 +116,7 @@ def test_complete_medical_lifecycle_returns_healthy_animal_to_cage() -> None:
         world,
         VETERINARY_ID,
         "medical-storage",
-        Position(6, 1),
+        Position(8, 1),
         ActionType.TAKE_MEDICINE,
         target_id=MEDICINE_ID,
         quantity=1,
@@ -206,7 +209,7 @@ def test_take_medicine_fails_without_stock_and_changes_nothing() -> None:
         ActionType.DELIVER_TO_TREATMENT,
         destination=TREATMENT_POSITION,
     )
-    acquire(world, VETERINARY_ID, "medical-storage", Position(6, 1))
+    acquire(world, VETERINARY_ID, "medical-storage", Position(8, 1))
     event_count_before = len(world.events)
 
     result = world.apply(

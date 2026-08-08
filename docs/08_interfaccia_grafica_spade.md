@@ -36,13 +36,16 @@ NiceGUI nel browser
 
 ## Cosa mostra la dashboard
 
-- griglia 12×8 con Food Storage, Medical Storage, Cage Area e Treatment Room;
+- griglia 14×10 con corridoio, Food Storage, Medical Storage, Cage Area e
+  Treatment Room;
 - tutte le gabbie, le ciotole e gli animali con il relativo stato;
-- soltanto gli operatori che possiedono un accesso attivo sulla mappa;
+- tutti gli operatori, anche durante gli spostamenti e le attese;
+- cella target e percorso A* residuo, con un colore diverso per ogni operatore;
 - roster completo degli operatori, compresi quelli in attesa;
 - indicatori per animali sani, ciotole piene, cure e scorte;
 - cronologia ordinata di trigger SPADE, decisioni, azioni e attese;
-- occupanti e capacità di ogni area, sempre confrontabili con il limite `2`.
+- occupazione fisica e capacità delle aree; le quattro stanze operative hanno
+  sempre limite `2`, mentre il corridoio comune ospita i sette operatori.
 
 Mappa e cronologia sono affiancate su schermi desktop e si dispongono in una
 sola colonna sulle finestre più strette.

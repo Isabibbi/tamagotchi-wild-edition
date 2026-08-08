@@ -15,7 +15,7 @@ from tamagotchi_wild.domain import (
 
 def feeding_world(food_quantity: int = 2):
     world = create_default_environment()
-    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 4)))
+    world.register_bowl(Bowl("bowl_01", "cage_01", Position(2, 6)))
     world.register_food_stock(
         FoodStock("food_stock_01", Position(1, 1), quantity=food_quantity)
     )
@@ -47,16 +47,19 @@ def fill_bowl_command() -> ActionCommand:
 
 
 def acquire(world, area_id: str, position: Position) -> None:
-    result = world.apply(
-        ActionCommand(
-            actor_id="feeding_01",
-            action=ActionType.ACQUIRE_AREA,
-            target_id=area_id,
-            task_id="task_001",
-            destination=position,
+    for _ in range(40):
+        result = world.apply(
+            ActionCommand(
+                actor_id="feeding_01",
+                action=ActionType.ACQUIRE_AREA,
+                target_id=area_id,
+                task_id="task_001",
+                destination=position,
+            )
         )
-    )
-    assert result.accepted
+        if result.reason != "moving":
+            break
+    assert result.accepted and result.reason in {"accepted", "already_acquired"}
 
 
 def release(world, area_id: str) -> None:
@@ -89,7 +92,7 @@ def test_fill_bowl_completes_task_after_food_was_taken() -> None:
     acquire(world, "food-storage", Position(1, 1))
     world.apply(take_food_command())
     release(world, "food-storage")
-    acquire(world, "cage-area", Position(2, 4))
+    acquire(world, "cage-area", Position(2, 6))
 
     result = world.apply(fill_bowl_command())
     snapshot = world.snapshot()
@@ -133,7 +136,7 @@ def test_take_food_fails_cleanly_when_storage_is_empty() -> None:
 
 def test_fill_bowl_requires_food_taken_for_the_same_task() -> None:
     world = feeding_world()
-    acquire(world, "cage-area", Position(2, 4))
+    acquire(world, "cage-area", Position(2, 6))
 
     result = world.apply(fill_bowl_command())
 

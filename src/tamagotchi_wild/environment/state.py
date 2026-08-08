@@ -30,6 +30,7 @@ from tamagotchi_wild.environment.errors import (
     InvalidActionError,
     UnknownEntityError,
 )
+from tamagotchi_wild.environment.pathfinding import astar_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +55,16 @@ class AreaAccessState:
 
 
 @dataclass(frozen=True, slots=True)
+class AgentNavigationState:
+    agent_id: str
+    target: Position
+    path: tuple[Position, ...]
+    status: str
+    wait_cycles: int = 0
+    replans: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class WorldSnapshot:
     width: int
     height: int
@@ -66,6 +77,8 @@ class WorldSnapshot:
     agents: tuple[AgentState, ...]
     tasks: tuple[Task, ...]
     area_access: tuple[AreaAccessState, ...]
+    room_occupancy: tuple[AreaAccessState, ...]
+    navigation: tuple[AgentNavigationState, ...]
     event_count: int
 
 
@@ -101,6 +114,11 @@ class EnvironmentState:
         self._max_area_occupancy: dict[str, int] = {
             area_id: 0 for area_id in self._areas
         }
+        self._max_room_occupancy: dict[str, int] = {
+            area_id: 0 for area_id in self._areas
+        }
+        self._navigation: dict[str, AgentNavigationState] = {}
+        self._navigation_task: dict[str, str] = {}
         self._validate_areas()
 
     @property
@@ -140,6 +158,7 @@ class EnvironmentState:
 
     def register_agent(self, agent: AgentState) -> None:
         self._register(agent.id, agent.position, self._agents, agent)
+        self._update_physical_occupancy_maximum()
 
     def register_task(self, task: Task) -> None:
         if task.id in self._entity_ids:
@@ -203,11 +222,15 @@ class EnvironmentState:
             area_access=tuple(
                 AreaAccessState(
                     area_id=area_id,
-                    capacity=min(area.capacity, 2),
+                    capacity=self._effective_capacity(area),
                     occupants=tuple(sorted(self._area_occupants[area_id])),
                     max_observed=self._max_area_occupancy[area_id],
                 )
                 for area_id, area in sorted(self._areas.items())
+            ),
+            room_occupancy=self._room_occupancy_snapshot(),
+            navigation=tuple(
+                sorted(self._navigation.values(), key=lambda item: item.agent_id)
             ),
             event_count=len(self._events),
         )
@@ -265,16 +288,17 @@ class EnvironmentState:
                 raise UnknownEntityError(f"unknown area: {command.target_id}")
             current = self._agent_area_access.get(actor.id)
             current_task = self._agent_area_task.get(actor.id)
+            navigation_task = self._navigation_task.get(actor.id)
             if current == area.id and current_task == command.task_id:
                 return ActionResult(True, "already_acquired")
             if current is not None:
                 raise InvalidActionError(
                     f"agent {actor.id} is busy with task {current_task} in area {current}"
                 )
-            occupants = self._area_occupants[area.id]
-            capacity = min(area.capacity, 2)
-            if len(occupants) >= capacity:
-                raise InvalidActionError(f"area {area.id} is at capacity")
+            if navigation_task is not None and navigation_task != command.task_id:
+                raise InvalidActionError(
+                    f"agent {actor.id} is navigating for task {navigation_task}"
+                )
             destination = command.destination or actor.position
             self._validate_position(destination)
             if destination not in area.cells:
@@ -282,11 +306,35 @@ class EnvironmentState:
         except EnvironmentError as exc:
             return ActionResult(False, str(exc))
 
+        if actor.position != destination:
+            self._navigation_task[actor.id] = command.task_id
+            return self._advance_navigation(command, actor, destination)
+
+        self._navigation_task[actor.id] = command.task_id
+        occupants = self._area_occupants[area.id]
+        capacity = self._effective_capacity(area)
+        if len(occupants) >= capacity:
+            self._set_navigation_waiting(actor.id, destination)
+            return ActionResult(False, f"area {area.id} is at capacity")
+
         origin = actor.position
         occupants.add(actor.id)
         self._agent_area_access[actor.id] = area.id
         self._agent_area_task[actor.id] = command.task_id
-        self._agents[actor.id] = replace(actor, position=destination)
+        self._navigation_task[actor.id] = command.task_id
+        self._agents[actor.id] = replace(
+            actor,
+            position=destination,
+            current_task_id=command.task_id,
+        )
+        previous_navigation = self._navigation.get(actor.id)
+        self._navigation[actor.id] = AgentNavigationState(
+            actor.id,
+            destination,
+            (),
+            "arrived",
+            replans=(previous_navigation.replans if previous_navigation else 0),
+        )
         self._max_area_occupancy[area.id] = max(
             self._max_area_occupancy[area.id],
             len(occupants),
@@ -317,8 +365,188 @@ class EnvironmentState:
         self._area_occupants[command.target_id].remove(actor.id)
         del self._agent_area_access[actor.id]
         del self._agent_area_task[actor.id]
+        self._agents[actor.id] = replace(actor, current_task_id=None)
+        self._navigation.pop(actor.id, None)
+        self._navigation_task.pop(actor.id, None)
         event = self._append_event(command, actor.position, "area released")
         return ActionResult(True, "accepted", event.sequence)
+
+    def _advance_navigation(
+        self,
+        command: ActionCommand,
+        actor: AgentState,
+        destination: Position,
+    ) -> ActionResult:
+        """Calcola A* sullo stato corrente e applica una sola mossa atomica."""
+
+        previous = self._navigation.get(actor.id)
+        blocked = self._navigation_blocked_cells(actor, destination)
+        path = astar_path(
+            actor.position,
+            destination,
+            self.width,
+            self.height,
+            blocked,
+        )
+        if path is None:
+            self._set_navigation_waiting(actor.id, destination)
+            return ActionResult(False, f"path blocked for agent {actor.id}")
+
+        next_position = path[0]
+        entering_target = next_position == destination
+        try:
+            self._move_agent_one_cell(
+                actor.id,
+                next_position,
+                allow_shared_target=entering_target,
+            )
+        except EnvironmentError as exc:
+            self._navigation[actor.id] = AgentNavigationState(
+                actor.id,
+                destination,
+                path,
+                "waiting",
+                wait_cycles=(previous.wait_cycles + 1 if previous else 1),
+                replans=(previous.replans + 1 if previous else 0),
+            )
+            return ActionResult(False, f"path blocked for agent {actor.id}: {exc}")
+
+        replans = previous.replans if previous else 0
+        if previous is not None and previous.path != path:
+            replans += 1
+        self._navigation[actor.id] = AgentNavigationState(
+            actor.id,
+            destination,
+            path[1:],
+            "arrived" if entering_target else "moving",
+            wait_cycles=0,
+            replans=replans,
+        )
+        move_command = ActionCommand(
+            actor_id=actor.id,
+            action=ActionType.MOVE_AGENT,
+            target_id=actor.id,
+            destination=next_position,
+            task_id=command.task_id,
+        )
+        event = self._append_event(move_command, actor.position, "A* step")
+        return ActionResult(True, "moving", event.sequence)
+
+    def _navigation_blocked_cells(
+        self,
+        actor: AgentState,
+        destination: Position,
+    ) -> set[Position]:
+        blocked = {
+            other.position
+            for other in self._agents.values()
+            if other.id != actor.id
+        }
+        actor_area = self.area_at(actor.position)
+        for area in self._areas.values():
+            if actor_area is not None and area.id == actor_area.id:
+                continue
+            if len(self._physical_occupants(area.id)) >= self._effective_capacity(area):
+                blocked.update(area.cells)
+
+        destination_area = self.area_at(destination)
+        if (
+            destination_area is not None
+            and (
+                (actor_area is not None and actor_area.id == destination_area.id)
+                or len(self._physical_occupants(destination_area.id))
+                < self._effective_capacity(destination_area)
+            )
+        ):
+            blocked.discard(destination)
+        return blocked
+
+    def _set_navigation_waiting(
+        self,
+        agent_id: str,
+        destination: Position,
+    ) -> None:
+        previous = self._navigation.get(agent_id)
+        self._navigation[agent_id] = AgentNavigationState(
+            agent_id,
+            destination,
+            previous.path if previous and previous.target == destination else (),
+            "waiting",
+            wait_cycles=(previous.wait_cycles + 1 if previous else 1),
+            replans=(previous.replans + 1 if previous else 0),
+        )
+
+    def _move_agent_one_cell(
+        self,
+        agent_id: str,
+        destination: Position,
+        *,
+        allow_shared_target: bool = False,
+    ) -> Position:
+        self._validate_position(destination)
+        actor = self._agents.get(agent_id)
+        if actor is None:
+            raise UnknownEntityError(f"unknown agent: {agent_id}")
+        distance = abs(actor.position.x - destination.x) + abs(
+            actor.position.y - destination.y
+        )
+        if distance != 1:
+            raise InvalidActionError("an agent move must advance exactly one cell")
+
+        other_agents = [
+            item
+            for item in self._agents.values()
+            if item.id != actor.id and item.position == destination
+        ]
+        if other_agents and not (allow_shared_target and len(other_agents) == 1):
+            raise InvalidActionError(f"cell ({destination.x}, {destination.y}) is occupied")
+
+        origin_area = self.area_at(actor.position)
+        destination_area = self.area_at(destination)
+        if (
+            destination_area is not None
+            and (origin_area is None or origin_area.id != destination_area.id)
+            and len(self._physical_occupants(destination_area.id))
+            >= self._effective_capacity(destination_area)
+        ):
+            raise InvalidActionError(f"room {destination_area.id} is at physical capacity")
+
+        origin = actor.position
+        self._agents[actor.id] = replace(actor, position=destination)
+        self._update_physical_occupancy_maximum()
+        return origin
+
+    def _physical_occupants(self, area_id: str) -> tuple[str, ...]:
+        area = self._areas[area_id]
+        return tuple(
+            sorted(
+                agent.id
+                for agent in self._agents.values()
+                if agent.position in area.cells
+            )
+        )
+
+    def _room_occupancy_snapshot(self) -> tuple[AreaAccessState, ...]:
+        return tuple(
+            AreaAccessState(
+                area_id=area_id,
+                capacity=self._effective_capacity(area),
+                occupants=self._physical_occupants(area_id),
+                max_observed=self._max_room_occupancy[area_id],
+            )
+            for area_id, area in sorted(self._areas.items())
+        )
+
+    def _update_physical_occupancy_maximum(self) -> None:
+        for area_id in self._areas:
+            self._max_room_occupancy[area_id] = max(
+                self._max_room_occupancy[area_id],
+                len(self._physical_occupants(area_id)),
+            )
+
+    @staticmethod
+    def _effective_capacity(area: Area) -> int:
+        return area.capacity if area.kind is AreaType.CORRIDOR else min(area.capacity, 2)
 
     def _append_event(
         self,
@@ -695,6 +923,8 @@ class EnvironmentState:
     ) -> Position:
         if destination is None:
             raise InvalidActionError("destination is required for a move")
+        if entity_type == "agent":
+            return self._move_agent_one_cell(entity_id, destination)
         self._validate_position(destination)
         entity = entities.get(entity_id)
         if entity is None:

@@ -14,15 +14,36 @@ from tamagotchi_wild.domain import (
 from tamagotchi_wild.environment import DuplicateEntityError
 
 
-def test_default_grid_is_partitioned_into_four_areas() -> None:
+def test_default_grid_has_four_rooms_and_a_navigation_corridor() -> None:
     world = create_default_environment()
     snapshot = world.snapshot()
 
     assert {area.kind for area in snapshot.areas} == set(AreaType)
-    assert sum(len(area.cells) for area in snapshot.areas) == 12 * 8
+    assert sum(len(area.cells) for area in snapshot.areas) == 14 * 10
 
 
 def test_valid_move_changes_state_and_records_event() -> None:
+    world = create_default_environment()
+    world.register_agent(
+        AgentState("logistics-001", AgentRole.LOGISTICS, Position(2, 4))
+    )
+
+    result = world.apply(
+        ActionCommand(
+            actor_id="logistics-001",
+            action=ActionType.MOVE_AGENT,
+            target_id="logistics-001",
+            destination=Position(3, 4),
+        )
+    )
+
+    assert result.accepted is True
+    assert result.event_sequence == 1
+    assert world.snapshot().agents[0].position == Position(3, 4)
+    assert world.events[0].origin == Position(2, 4)
+
+
+def test_agent_cannot_skip_cells_during_a_move() -> None:
     world = create_default_environment()
     world.register_agent(
         AgentState("logistics-001", AgentRole.LOGISTICS, Position(2, 4))
@@ -37,10 +58,9 @@ def test_valid_move_changes_state_and_records_event() -> None:
         )
     )
 
-    assert result.accepted is True
-    assert result.event_sequence == 1
-    assert world.snapshot().agents[0].position == Position(8, 4)
-    assert world.events[0].origin == Position(2, 4)
+    assert result.accepted is False
+    assert result.reason == "an agent move must advance exactly one cell"
+    assert world.snapshot().agents[0].position == Position(2, 4)
 
 
 def test_invalid_move_is_rejected_without_changing_state() -> None:

@@ -17,9 +17,9 @@ def test_visualization_update_round_trip_contains_complete_world() -> None:
 
     assert restored.sequence == 0
     assert restored.event["action"] == "initial_state"
-    assert restored.snapshot["width"] == 12
-    assert restored.snapshot["height"] == 8
-    assert len(restored.snapshot["areas"]) == 4
+    assert restored.snapshot["width"] == 14
+    assert restored.snapshot["height"] == 10
+    assert len(restored.snapshot["areas"]) == 5
     assert len(restored.snapshot["animals"]) == 2
     assert len(restored.snapshot["cages"]) == 2
     assert len(restored.snapshot["bowls"]) == 2

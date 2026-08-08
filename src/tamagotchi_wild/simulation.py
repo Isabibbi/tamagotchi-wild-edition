@@ -42,9 +42,9 @@ VISUALIZATION_JID = "visualization@localhost"
 FOOD_STOCK_ID = "food_stock_01"
 MEDICINE_STOCK_ID = "medicine_stock_01"
 FOOD_POSITION = Position(1, 1)
-MEDICINE_POSITION = Position(6, 1)
-CAGE_POSITION = Position(2, 4)
-TREATMENT_POSITION = Position(9, 4)
+MEDICINE_POSITION = Position(8, 1)
+CAGE_POSITION = Position(2, 6)
+TREATMENT_POSITION = Position(11, 6)
 
 SPECIES = (
     "fox",
@@ -203,13 +203,13 @@ def build_environment(
         ),
     )
     staging_positions = (
-        Position(1, 1),
-        Position(5, 1),
+        Position(0, 4),
+        Position(1, 4),
         Position(2, 4),
-        Position(9, 4),
-        Position(2, 1),
-        Position(6, 1),
         Position(3, 4),
+        Position(4, 4),
+        Position(5, 4),
+        Position(6, 4),
     )
     for (jid, role), position in zip(
         identities,
@@ -405,7 +405,11 @@ async def execute_simulation(
         animal.health is HealthStatus.HEALTHY for animal in snapshot.animals
     )
     filled_bowls = sum(bowl.level == bowl.capacity for bowl in snapshot.bowls)
-    max_occupancy = max(item.max_observed for item in snapshot.area_access)
+    max_occupancy = max(
+        item.max_observed
+        for item in snapshot.room_occupancy
+        if item.capacity == 2
+    )
     active_occupancy = sum(len(item.occupants) for item in snapshot.area_access)
     claims = tuple(
         f"{event.task_id}:{event.target_id}:{event.actor_id}"

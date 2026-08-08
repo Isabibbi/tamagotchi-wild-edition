@@ -93,8 +93,15 @@ async def acquire_area(
             area_id,
             destination=destination,
         )
-        retryable = "is at capacity" in result.reason or "is busy with task" in result.reason
-        if result.accepted or not retryable:
+        retryable = (
+            result.reason == "moving"
+            or "is at capacity" in result.reason
+            or "is at physical capacity" in result.reason
+            or "path blocked" in result.reason
+            or "is busy with task" in result.reason
+            or "is navigating for task" in result.reason
+        )
+        if (result.accepted and result.reason != "moving") or not retryable:
             return result
         if asyncio.get_running_loop().time() >= deadline:
             return ActionResponse(
@@ -103,13 +110,47 @@ async def acquire_area(
                 f"timeout waiting for access to {area_id}",
                 None,
             )
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
 
 
 async def release_area(behaviour, task_id: str, area_id: str) -> ActionResponse:
-    return await environment_action(
+    released = await environment_action(
         behaviour,
         task_id,
         ActionType.RELEASE_AREA,
         area_id,
     )
+    if not released.accepted or area_id == "corridor":
+        return released
+
+    parked = await acquire_area(
+        behaviour,
+        task_id,
+        "corridor",
+        _corridor_parking_position(area_id, behaviour.agent.agent_label),
+    )
+    if not parked.accepted:
+        return parked
+    corridor_released = await environment_action(
+        behaviour,
+        task_id,
+        ActionType.RELEASE_AREA,
+        "corridor",
+    )
+    return released if corridor_released.accepted else corridor_released
+
+
+def _corridor_parking_position(area_id: str, agent_id: str) -> Position:
+    """Sceglie una cella del corridoio vicina alla stanza appena lasciata."""
+
+    choices = {
+        "food-storage": tuple(Position(x, 4) for x in range(0, 5)),
+        "medical-storage": tuple(Position(x, 4) for x in range(6, 14)),
+        "cage-area": tuple(Position(x, 4) for x in range(0, 9)),
+        "treatment-room": tuple(Position(9, y) for y in range(5, 10)),
+    }[area_id]
+    identity = sum(
+        (position + 1) * ord(character)
+        for position, character in enumerate(agent_id)
+    )
+    return choices[identity % len(choices)]

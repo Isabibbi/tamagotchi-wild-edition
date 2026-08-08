@@ -10,8 +10,8 @@ from tamagotchi_wild.environment import EnvironmentState
 
 @dataclass(frozen=True, slots=True)
 class GridConfig:
-    width: int = 12
-    height: int = 8
+    width: int = 14
+    height: int = 10
 
 
 DEFAULT_GRID = GridConfig()
@@ -66,33 +66,43 @@ def _rectangle(x_start: int, x_end: int, y_start: int, y_end: int):
 
 
 def default_areas(config: GridConfig = DEFAULT_GRID) -> tuple[Area, ...]:
-    """Partition the default grid into the four required operational areas."""
+    """Crea quattro stanze e un corridoio neutro per la navigazione."""
 
-    split_x = config.width * 2 // 3
-    split_y = config.height * 3 // 8
+    if config.width != 14 or config.height != 10:
+        raise ValueError("the navigable CRAS layout requires a 14x10 grid")
     return (
+        Area(
+            id="corridor",
+            kind=AreaType.CORRIDOR,
+            cells=(
+                _rectangle(0, 14, 4, 5)
+                | _rectangle(5, 6, 0, 4)
+                | _rectangle(9, 10, 5, 10)
+            ),
+            capacity=7,
+        ),
         Area(
             id="food-storage",
             kind=AreaType.FOOD_STORAGE,
-            cells=_rectangle(0, split_x // 2, 0, split_y),
+            cells=_rectangle(0, 5, 0, 4),
             capacity=2,
         ),
         Area(
             id="medical-storage",
             kind=AreaType.MEDICAL_STORAGE,
-            cells=_rectangle(split_x // 2, config.width, 0, split_y),
+            cells=_rectangle(6, 14, 0, 4),
             capacity=2,
         ),
         Area(
             id="cage-area",
             kind=AreaType.CAGE_AREA,
-            cells=_rectangle(0, split_x, split_y, config.height),
+            cells=_rectangle(0, 9, 5, 10),
             capacity=2,
         ),
         Area(
             id="treatment-room",
             kind=AreaType.TREATMENT_ROOM,
-            cells=_rectangle(split_x, config.width, split_y, config.height),
+            cells=_rectangle(10, 14, 5, 10),
             capacity=2,
         ),
     )
