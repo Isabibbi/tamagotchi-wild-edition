@@ -1,44 +1,51 @@
-# Interfaccia grafica SPADE
+# Interfaccia grafica SPADE con NiceGUI
 
 ## Obiettivo
 
-La GUI rende visibile la simulazione unica di alimentazione e cure mediche,
-senza introdurre un secondo scenario e senza leggere direttamente lo stato
-interno dell'Environment.
+La dashboard web rende visibile l'unica simulazione concorrente di alimentazione
+e cure mediche. Non legge direttamente lo stato interno dell'Environment e non
+introduce un secondo scenario.
 
 ## Flusso degli aggiornamenti
 
 1. Un operatore SPADE-BDI invia un'azione all'Environment Agent.
 2. L'Environment valida l'azione e modifica atomicamente lo stato.
-3. L'Environment crea uno snapshot read-only della griglia.
-4. Lo snapshot viene serializzato in JSON con ontologia `cras.visualization`.
-5. Il Visualization Agent SPADE riceve il messaggio tramite XMPP.
-6. La GUI Tkinter consuma l'aggiornamento e ridisegna griglia e cronologia.
+3. L'Environment serializza uno snapshot JSON con ontologia `cras.visualization`.
+4. Il Visualization Agent riceve lo snapshot via SPADE/XMPP.
+5. Il worker SPADE inoltra l'oggetto read-only attraverso un canale locale autenticato.
+6. NiceGUI riproduce i frame nel browser e aggiorna mappa, indicatori e cronologia.
 
-Anche un'azione rifiutata viene pubblicata. Se, per esempio, due operatori sono
-già nella Treatment Room, il tentativo del terzo appare come un evento di
-attesa. Il rifiuto non modifica lo stato e l'agente continua a riprovare secondo
-la politica di concorrenza già implementata.
+NiceGUI non sostituisce SPADE: è soltanto il livello di presentazione. Le
+decisioni, i messaggi tra operatori e gli aggiornamenti visuali continuano a
+passare dagli agenti SPADE.
 
-## Cosa mostra la finestra
+## Perché esistono due processi
 
-La parte sinistra contiene la griglia 12×8:
+Il server XMPP integrato di SPADE e il server web NiceGUI devono entrambi essere
+avviati come processo principale. Per questo la dashboard avvia la simulazione
+SPADE in un worker autonomo. I due processi comunicano soltanto su `127.0.0.1`
+con una chiave casuale generata a ogni avvio.
 
-- Food Storage in giallo chiaro;
-- Medical Storage in azzurro;
-- Cage Area in verde, con tutte le gabbie e le ciotole;
-- Treatment Room in rosa;
-- operatori con iniziali `V`, `L` e `F` e colore distinto per ruolo;
-- animali colorati secondo lo stato di salute.
+```text
+Environment Agent
+    -> messaggio SPADE/XMPP
+Visualization Agent
+    -> bridge locale autenticato
+NiceGUI nel browser
+```
 
-Il bordo giallo di un operatore indica che possiede un permesso di accesso a
-un'area. La sezione di riepilogo mostra inoltre il rapporto occupanti/capacità
-per tutte le stanze, rendendo verificabile il limite `2`.
+## Cosa mostra la dashboard
 
-La parte destra contiene la cronologia. Le righe principali corrispondono agli
-eventi atomici dell'Environment; le righe rientrate descrivono le cause di alto
-livello, come una ciotola vuota, una richiesta di trasporto o il completamento
-di una cura.
+- griglia 12×8 con Food Storage, Medical Storage, Cage Area e Treatment Room;
+- tutte le gabbie, le ciotole e gli animali con il relativo stato;
+- soltanto gli operatori che possiedono un accesso attivo sulla mappa;
+- roster completo degli operatori, compresi quelli in attesa;
+- indicatori per animali sani, ciotole piene, cure e scorte;
+- cronologia ordinata di trigger SPADE, decisioni, azioni e attese;
+- occupanti e capacità di ogni area, sempre confrontabili con il limite `2`.
+
+Mappa e cronologia sono affiancate su schermi desktop e si dispongono in una
+sola colonna sulle finestre più strette.
 
 ## Avvio
 
@@ -48,7 +55,8 @@ Da PowerShell nella directory del progetto:
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5
 ```
 
-Il numero dei tre tipi di operatore resta configurabile nello stesso comando:
+NiceGUI apre il browser su `http://127.0.0.1:8080`. Il numero degli operatori
+resta configurabile nello stesso comando:
 
 ```powershell
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui `
@@ -59,14 +67,22 @@ Il numero dei tre tipi di operatore resta configurabile nello stesso comando:
   --gui-delay 0.20
 ```
 
-`--gui-delay` controlla solo la velocità con cui i frame già ricevuti vengono
-mostrati. Non rallenta SPADE, non modifica l'ordine degli eventi e non influisce
-sul timeout della simulazione.
+Opzioni della dashboard:
 
-## Scelta tecnologica
+```text
+--gui-delay N     intervallo di playback dei frame; default 0.20 secondi
+--gui-port N      porta locale; default 8080
+--gui-no-browser  non apre automaticamente il browser
+```
 
-SPADE rimane responsabile della comunicazione e dell'agente di visualizzazione.
-Tkinter è esclusivamente il renderer desktop: è incluso in Python 3.12 su questo
-PC, quindi non è stata aggiunta alcuna dipendenza da installare. SPADE resta nel
-processo principale, come richiesto dal server XMPP integrato; la finestra gira
-in un processo separato per mantenersi reattiva mentre gli agenti lavorano.
+Il selettore nella pagina consente di cambiare la velocità durante il playback.
+Il pulsante di pausa ferma soltanto la visualizzazione: gli agenti SPADE
+continuano a lavorare. Il pulsante **Chiudi** arresta il server e l'eventuale
+worker ancora attivo.
+
+## Controlli di correttezza
+
+I renderer SVG e HTML sono testati come funzioni pure. Un test di scenario
+verifica che gli snapshot arrivino realmente dal Visualization Agent via SPADE.
+La prova manuale finale verifica nel browser anche il bridge, l'assenza di
+scorrimento orizzontale e la leggibilità contemporanea di mappa e cronologia.

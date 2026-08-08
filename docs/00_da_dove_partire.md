@@ -19,7 +19,7 @@ Agent SPADE.
 | Ragionamento | AgentSpeak per obiettivi e piani; Python per azioni ed effetti | Mantiene il BDI leggibile senza forzare la logica operativa in `.asl` |
 | Comunicazione | Messaggi SPADE con metadata FIPA e body JSON | Consente filtri, tracciamento e validazione dei messaggi |
 | XMPP locale | Server integrato di SPADE durante lo sviluppo | Riduce il setup iniziale e rende i test ripetibili sul PC |
-| Visualizzazione | Visualization Agent SPADE e renderer Tkinter separato | La GUI riceve snapshot JSON e non diventa fonte dello stato; Tkinter non aggiunge dipendenze |
+| Visualizzazione | Visualization Agent SPADE e dashboard NiceGUI separata | La GUI riceve snapshot JSON e non diventa fonte dello stato; il browser offre una vista moderna e responsive |
 
 Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambiate solo dopo un esperimento che mostri un problema concreto.
 

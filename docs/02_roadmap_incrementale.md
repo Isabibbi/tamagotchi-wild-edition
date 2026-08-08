@@ -91,7 +91,7 @@ La generazione dei casi è descritta in
 
 **Stato: completata.** La simulazione integrata può essere avviata con `--gui`.
 Un Visualization Agent SPADE riceve dall'Environment snapshot versionati e
-aggiorna la griglia 2D. La cronologia mostra sia gli eventi dell'ambiente sia le
+aggiorna una dashboard NiceGUI responsive con griglia 2D. La cronologia mostra sia gli eventi dell'ambiente sia le
 richieste di cooperazione fra ruoli, compresi i tentativi di accesso che devono
 attendere quando un'area ha già due occupanti.
 

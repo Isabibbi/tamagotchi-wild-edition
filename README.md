@@ -70,19 +70,22 @@ Per vedere la simulazione, usare lo stesso comando con `--gui`:
 & .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5
 ```
 
-La finestra mostra:
+Il browser si apre su una dashboard NiceGUI locale e mostra:
 
 - a sinistra, la griglia 12×8 con aree, operatori, animali, gabbie e ciotole;
 - in giallo, il bordo degli operatori che occupano una stanza;
 - a destra, risorse, task completati e occupazione corrente delle aree;
 - nella cronologia, percezioni, richieste, movimenti, azioni e attese;
-- alla fine, l'esito complessivo senza chiudere automaticamente la finestra.
+- alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
 
 Gli aggiornamenti non accedono direttamente allo stato della simulazione:
 l'Environment invia messaggi JSON con ontologia `cras.visualization` al
-Visualization Agent SPADE. Tkinter si limita a disegnare ciò che questo agente
-riceve. `--gui-delay 0.20` regola i secondi fra due frame; non rallenta i flussi
-interni degli agenti.
+Visualization Agent SPADE. NiceGUI si limita a disegnare ciò che questo agente
+riceve tramite un canale locale autenticato. `--gui-delay 0.20` regola i secondi
+fra due frame; non rallenta i flussi interni degli agenti.
+
+La pagina è servita soltanto su `127.0.0.1`: non viene pubblicata su Internet.
+Se il browser non si apre automaticamente, visitare `http://127.0.0.1:8080`.
 
 ### Parametri della simulazione
 
@@ -122,6 +125,8 @@ Opzioni aggiuntive:
 --timeout N    timeout in secondi
 --gui          apre griglia e cronologia live
 --gui-delay N  secondi fra due frame grafici; default 0.20
+--gui-port N   porta locale della dashboard; default 8080
+--gui-no-browser  avvia il server senza aprire automaticamente il browser
 --json         risultato finale in JSON
 ```
 
@@ -133,8 +138,8 @@ Opzioni aggiuntive:
 
 I test verificano la configurazione fino a 7 operatori e 40 animali,
 l'assegnazione univoca dei task, il limite di 2 accessi e un'esecuzione
-end-to-end con 5 animali e 10 task. Un test dedicato avvia anche il
-Visualization Agent e verifica che gli snapshot arrivino realmente via SPADE.
+end-to-end con 5 animali e 10 task. I test dedicati avviano anche il
+Visualization Agent, verificano lo stream SPADE e i renderer usati da NiceGUI.
 Il server XMPP integrato viene avviato e arrestato automaticamente; non servono
 Internet né credenziali esterne.
 
@@ -147,8 +152,10 @@ src/tamagotchi_wild/
 ├── domain/          # entità e comandi del dominio
 ├── environment/     # stato autorevole, claim atomici e capacità
 ├── messaging/       # contratti JSON e metadata FIPA
-├── visualization/   # proiezione read-only e traduzione della cronologia
-├── gui.py           # rendering Tkinter della simulazione live
+├── visualization/   # proiezione read-only, SVG e cronologia
+├── gui.py           # pagina e componenti NiceGUI
+├── gui_bridge.py    # canale locale autenticato NiceGUI ↔ SPADE
+├── gui_worker.py    # processo autonomo della simulazione SPADE
 ├── simulation.py    # unica simulazione integrata
 └── main.py          # parametri da terminale
 ```

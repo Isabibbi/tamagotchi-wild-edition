@@ -10,7 +10,8 @@ descritti in questo documento:
 - `messaging/`: payload JSON versionati e metadata FIPA;
 - `agents/`: ruoli SPADE-BDI, `EnvironmentAgent` e `VisualizationAgent`;
 - `visualization/`: proiezione immutabile e cronologia leggibile;
-- `gui.py`: vista Tkinter alimentata soltanto dal Visualization Agent.
+- `gui.py`: dashboard NiceGUI alimentata soltanto dal Visualization Agent;
+- `gui_bridge.py` e `gui_worker.py`: collegamento locale autenticato tra il server web e il processo SPADE.
 
 La simulazione integrata si avvia con `python -m tamagotchi_wild`; aggiungendo
 `--gui` si apre la vista live. I test si eseguono con `python -m pytest`.
@@ -26,7 +27,8 @@ flowchart LR
     F["Feeding Agent"]
     E["Environment Agent\nfonte dello stato"]
     X["Visualization Agent\nSPADE"]
-    G["Tkinter GUI\nsola visualizzazione"]
+    B["Bridge locale\nautenticato"]
+    G["NiceGUI\nsola visualizzazione"]
 
     V <-->|"messaggi e azioni"| E
     L <-->|"messaggi e azioni"| E
@@ -34,7 +36,8 @@ flowchart LR
     V <-->|"richieste di trasporto"| L
     L <-->|"richieste di alimentazione"| F
     E -->|"SPADE: cras.visualization"| X
-    X -->|"snapshot read-only"| G
+    X -->|"snapshot read-only"| B
+    B -->|"playback locale"| G
 ```
 
 ## Componenti
@@ -44,7 +47,7 @@ flowchart LR
 | AgentSpeak `.asl` | Belief, goal, condizioni e scelta dei piani | Modificare direttamente griglia o risorse |
 | Agenti Python | Ciclo di vita, messaggi, percezioni e custom actions | Conservare copie autorevoli dell'ambiente |
 | `EnvironmentAgent` | Stato, validazione azioni, collisioni e capacità | Decidere gli obiettivi degli agenti operativi |
-| Dominio | Entità e regole pure | Dipendere da SPADE o Tkinter |
+| Dominio | Entità e regole pure | Dipendere da SPADE o NiceGUI |
 | Visualizzazione | Render della griglia e degli eventi | Modificare direttamente lo stato del dominio |
 
 ## Confine tra BDI e Python
@@ -81,7 +84,9 @@ src/
     ├── environment/            # stato della griglia e azioni atomiche
     ├── messaging/              # contratti, metadata e serializzazione
     ├── visualization/          # proiezione e cronologia read-only
-    └── gui.py                  # rendering Tkinter
+    ├── gui.py                  # dashboard NiceGUI
+    ├── gui_bridge.py           # IPC locale autenticato
+    └── gui_worker.py           # avvio autonomo di SPADE
 ```
 
 I test dovrebbero rispecchiare questi confini:
@@ -144,7 +149,7 @@ agenti usa task e identificativi di conversazione per impedire duplicazioni.
 |---|---|---|
 | SPADE 4.1.x + SPADE-BDI 0.3.2 | Avvio e messaggio tra due `BDIAgent` | Nessun errore di compatibilità |
 | Server XMPP integrato | Esecuzione locale ripetuta | Nessun setup manuale tra due avvii |
-| Visualization Agent + Tkinter | Stream SPADE, griglia e cronologia | Validato: aggiornamenti XMPP e renderer separato |
+| Visualization Agent + NiceGUI | Stream SPADE, griglia e cronologia web | Validato: aggiornamenti XMPP, bridge e renderer separato |
 | JSON nei messaggi | Round-trip e payload invalido | Errore chiaro e contratto versionabile |
 
 ## Riferimenti verificati

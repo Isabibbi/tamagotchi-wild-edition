@@ -28,6 +28,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.20,
         help="secondi tra due aggiornamenti grafici (default: 0.20)",
     )
+    parser.add_argument(
+        "--gui-port",
+        type=int,
+        default=8080,
+        help="porta locale della dashboard NiceGUI (default: 8080)",
+    )
+    parser.add_argument(
+        "--gui-no-browser",
+        action="store_true",
+        help="avvia NiceGUI senza aprire automaticamente il browser",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
@@ -42,6 +53,10 @@ def main() -> int:
         raise SystemExit("timeout must be greater than zero")
     if args.gui_delay < 0:
         raise SystemExit("gui delay must not be negative")
+    if not 1024 <= args.gui_port <= 65535:
+        raise SystemExit("gui port must be between 1024 and 65535")
+    if args.gui_no_browser and not args.gui:
+        raise SystemExit("--gui-no-browser requires --gui")
     if args.gui and args.as_json:
         raise SystemExit("--gui and --json cannot be used together")
     try:
@@ -62,9 +77,13 @@ def main() -> int:
             medicine=args.medicine,
             timeout_seconds=args.timeout,
             step_delay_seconds=args.gui_delay,
+            port=args.gui_port,
+            show_browser=not args.gui_no_browser,
         )
         if result is None:
             return 0
+        if isinstance(result, Exception):
+            raise SystemExit(str(result))
     else:
         result = run_simulation(
             config,

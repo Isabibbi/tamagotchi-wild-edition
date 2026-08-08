@@ -1,408 +1,328 @@
-"""Interfaccia Tkinter alimentata esclusivamente dal Visualization Agent SPADE."""
+"""Dashboard NiceGUI alimentata esclusivamente dal Visualization Agent SPADE."""
 
 from __future__ import annotations
 
-from multiprocessing import get_context
-from queue import Empty
+import logging
+
+from nicegui import app, ui
 
 from tamagotchi_wild.config import SimulationConfig
+from tamagotchi_wild.gui_bridge import SimulationBridge
 from tamagotchi_wild.messaging import VisualizationUpdate
-from tamagotchi_wild.visualization import timeline_entries
+from tamagotchi_wild.visualization import (
+    render_area_access,
+    render_grid_svg,
+    render_operator_roster,
+    render_placeholder_svg,
+    snapshot_metrics,
+    timeline_entries,
+)
+from tamagotchi_wild.visualization.nicegui_theme import NICEGUI_CSS
 
 
-CELL_SIZE = 58
-GRID_MARGIN = 18
-AREA_COLORS = {
-    "food_storage": "#fff1b8",
-    "medical_storage": "#cce8ff",
-    "cage_area": "#d8f3dc",
-    "treatment_room": "#ffd6e0",
-}
-AREA_LABELS = {
-    "food_storage": "FOOD STORAGE",
-    "medical_storage": "MEDICAL STORAGE",
-    "cage_area": "CAGE AREA",
-    "treatment_room": "TREATMENT ROOM",
-}
-ROLE_COLORS = {
-    "veterinary": "#2563eb",
-    "logistics": "#7c3aed",
-    "feeding": "#ea580c",
-}
-ROLE_LABELS = {"veterinary": "V", "logistics": "L", "feeding": "F"}
-HEALTH_COLORS = {
-    "sick": "#dc2626",
-    "in_outbound_transport": "#9333ea",
-    "in_treatment": "#f59e0b",
-    "treated": "#0ea5e9",
-    "in_return_transport": "#9333ea",
-    "healthy": "#16a34a",
-}
+logger = logging.getLogger(__name__)
 
 
-class RescueCenterGUI:
+class RescueCenterDashboard:
+    """Una singola pagina browser con playback degli snapshot SPADE."""
+
     def __init__(
         self,
-        frame_queue,
-        result_queue,
+        bridge: SimulationBridge,
         config: SimulationConfig,
         step_delay_seconds: float,
     ) -> None:
-        try:
-            import tkinter as tk
-            from tkinter import scrolledtext
-        except ImportError as exc:
-            raise RuntimeError("Tkinter is not available in this Python installation") from exc
-
-        self.tk = tk
-        self.frame_queue = frame_queue
-        self.result_queue = result_queue
+        self.bridge = bridge
         self.config = config
+        self.step_delay_seconds = max(0.05, step_delay_seconds)
         self.seen_activity_count = 0
         self.last_sequence = -1
-        self.result = None
-        self.pending_result = None
-        self.poll_interval_ms = max(20, round(step_delay_seconds * 1000))
-        self.root = tk.Tk()
-        self.root.title("Tamagotchi Wild Edition — SPADE Live Simulation")
-        self.root.configure(bg="#f5f7fa")
-        self.root.protocol("WM_DELETE_WINDOW", self._close)
+        self.poll_count = 0
+        self.frame_index = 0
+        self.finished = False
+        self.timer = None
+        self._build()
 
-        title = tk.Label(
-            self.root,
-            text="Tamagotchi Wild Edition · Simulazione SPADE-BDI",
-            font=("Segoe UI", 16, "bold"),
-            bg="#16324f",
-            fg="white",
-            padx=14,
-            pady=10,
+    def _build(self) -> None:
+        with ui.header().classes(
+            "bg-slate-950 text-white border-b border-slate-800 px-5 py-3"
+        ):
+            with ui.row().classes("w-full items-center gap-4"):
+                ui.icon("pets", size="2rem", color="green-400")
+                with ui.column().classes("gap-0"):
+                    ui.label("Tamagotchi Wild Edition").classes(
+                        "text-xl font-black tracking-tight"
+                    )
+                    ui.label("Multi-Agent Care for Virtual Pets").classes(
+                        "text-xs text-slate-400"
+                    )
+                ui.space()
+                self.status_badge = ui.badge(
+                    "Connessione a SPADE…",
+                    color="info",
+                ).mark("simulation-status")
+                self.pause_button = ui.button(
+                    "Pausa playback",
+                    icon="pause",
+                    on_click=self._toggle_playback,
+                    color="slate-700",
+                ).props("unelevated rounded")
+                ui.button(
+                    "Chiudi",
+                    icon="close",
+                    on_click=app.shutdown,
+                    color="negative",
+                ).props("unelevated rounded").mark("close-dashboard")
+
+        with ui.column().classes("w-full gap-5"):
+            self._build_intro()
+            self._build_metrics()
+            with ui.element("div").classes(
+                "w-full grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
+            ):
+                with ui.column().classes("lg:col-span-8 gap-5 min-w-0"):
+                    self._build_grid_card()
+                    self._build_staff_card()
+                with ui.column().classes("lg:col-span-4 gap-5 min-w-0"):
+                    self._build_timeline_card()
+                    self._build_access_card()
+
+        self.timer = ui.timer(
+            self.step_delay_seconds,
+            self._poll_updates,
+            immediate=True,
         )
-        title.pack(fill="x")
 
-        body = tk.Frame(self.root, bg="#f5f7fa")
-        body.pack(fill="both", expand=True, padx=12, pady=12)
-        left = tk.Frame(body, bg="#f5f7fa")
-        left.pack(side="left", fill="both", expand=False)
-        right = tk.Frame(body, bg="#ffffff", bd=1, relief="solid")
-        right.pack(side="left", fill="both", expand=True, padx=(12, 0))
+    def _build_intro(self) -> None:
+        with ui.row().classes("w-full items-center justify-between gap-4"):
+            with ui.column().classes("gap-1"):
+                ui.label("Centro di Recupero Animali Selvatici").classes(
+                    "text-2xl font-black text-slate-900"
+                )
+                ui.label(
+                    "Alimentazione e cure mediche avanzano insieme tramite SPADE/XMPP."
+                ).classes("text-sm text-slate-500")
+            with ui.row().classes("items-end gap-3"):
+                ui.badge(
+                    f"{self.config.operator_count} operatori",
+                    color="blue-700",
+                ).props("outline")
+                ui.badge(
+                    (
+                        "1 animale"
+                        if self.config.animal_count == 1
+                        else f"{self.config.animal_count} animali"
+                    ),
+                    color="green-700",
+                ).props("outline")
+                ui.select(
+                    {
+                        0.05: "Molto veloce",
+                        0.10: "Veloce",
+                        0.20: "Normale",
+                        0.50: "Lento",
+                    },
+                    label="Velocità playback",
+                    value=self.step_delay_seconds,
+                    on_change=self._set_speed,
+                ).props("outlined dense").classes("w-44")
 
-        canvas_width = 12 * CELL_SIZE + 2 * GRID_MARGIN
-        canvas_height = 8 * CELL_SIZE + 2 * GRID_MARGIN
-        self.canvas = tk.Canvas(
-            left,
-            width=canvas_width,
-            height=canvas_height,
-            bg="white",
-            highlightthickness=1,
-            highlightbackground="#94a3b8",
-        )
-        self.canvas.pack()
-
-        self.status_var = tk.StringVar(value="Connessione al Visualization Agent SPADE…")
-        status = tk.Label(
-            left,
-            textvariable=self.status_var,
-            anchor="w",
-            font=("Segoe UI", 10, "bold"),
-            bg="#f5f7fa",
-            fg="#334155",
-            pady=8,
-        )
-        status.pack(fill="x")
-        self._build_legend(left)
-
-        summary_title = tk.Label(
-            right,
-            text="STATO DEL CRAS",
-            font=("Segoe UI", 11, "bold"),
-            bg="#ffffff",
-            fg="#16324f",
-            pady=8,
-        )
-        summary_title.pack(fill="x")
-        self.summary_var = tk.StringVar(
-            value=(
-                f"Operatori: {config.operator_count}  ·  "
-                f"Animali: {config.animal_count}\nIn attesa dello stato iniziale…"
+    def _build_metrics(self) -> None:
+        with ui.element("div").classes(
+            "w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
+        ):
+            self.healthy_value, self.healthy_progress = self._metric_card(
+                "favorite",
+                "Animali sani",
+                "0/0",
+                "green",
             )
-        )
-        summary = tk.Label(
-            right,
-            textvariable=self.summary_var,
-            justify="left",
-            anchor="w",
-            font=("Consolas", 9),
-            bg="#eef4f8",
-            fg="#0f172a",
-            padx=10,
-            pady=8,
-        )
-        summary.pack(fill="x", padx=8)
+            self.bowls_value, self.bowls_progress = self._metric_card(
+                "restaurant",
+                "Ciotole piene",
+                "0/0",
+                "orange",
+            )
+            self.medical_value, self.medical_progress = self._metric_card(
+                "medical_services",
+                "Cure completate",
+                "0/0",
+                "blue",
+            )
+            self.resources_value, _ = self._metric_card(
+                "inventory_2",
+                "Scorte disponibili",
+                "Cibo 0 · Medicine 0",
+                "purple",
+            )
 
-        timeline_title = tk.Label(
-            right,
-            text="CRONOLOGIA DEGLI EVENTI",
-            font=("Segoe UI", 11, "bold"),
-            bg="#ffffff",
-            fg="#16324f",
-            pady=8,
-        )
-        timeline_title.pack(fill="x")
-        self.timeline = scrolledtext.ScrolledText(
-            right,
-            width=58,
-            height=28,
-            wrap="word",
-            state="disabled",
-            font=("Consolas", 9),
-            bg="#0f172a",
-            fg="#e2e8f0",
-            insertbackground="white",
-            padx=8,
-            pady=8,
-        )
-        self.timeline.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    @staticmethod
+    def _metric_card(icon: str, title: str, value: str, tone: str):
+        with ui.card().classes("metric-card w-full p-4 gap-2"):
+            with ui.row().classes("w-full items-center gap-2"):
+                ui.icon(icon, size="1.35rem", color=f"{tone}-600")
+                ui.label(title).classes(
+                    "text-xs font-bold uppercase tracking-wide text-slate-500"
+                )
+            value_label = ui.label(value).classes(
+                "text-2xl font-black text-slate-900"
+            )
+            progress = None
+            if title != "Scorte disponibili":
+                progress = ui.linear_progress(
+                    0,
+                    show_value=False,
+                    color=f"{tone}-600",
+                ).props("rounded")
+            return value_label, progress
 
-    def run(self):
-        self.root.after(self.poll_interval_ms, self._poll_updates)
-        self.root.mainloop()
-        return self.result
+    def _build_grid_card(self) -> None:
+        with ui.card().classes("cras-card w-full p-5 gap-4"):
+            with ui.row().classes("w-full items-center justify-between"):
+                with ui.column().classes("gap-0"):
+                    ui.label("Mappa operativa").classes(
+                        "text-lg font-black text-slate-900"
+                    )
+                    ui.label(
+                        "Sulla griglia compaiono solo gli operatori con accesso attivo."
+                    ).classes("text-xs text-slate-500")
+                self.event_label = ui.label("Snapshot iniziale in arrivo").classes(
+                    "text-xs font-bold text-green-700"
+                )
+            self.grid_html = ui.html(
+                render_placeholder_svg(),
+                sanitize=False,
+            ).classes("grid-shell w-full").mark("cras-grid")
 
-    def _build_legend(self, parent) -> None:
-        legend = self.tk.Frame(parent, bg="#f5f7fa")
-        legend.pack(fill="x")
-        items = (
-            ("Veterinary", ROLE_COLORS["veterinary"]),
-            ("Logistics", ROLE_COLORS["logistics"]),
-            ("Feeding", ROLE_COLORS["feeding"]),
-            ("Animale malato", HEALTH_COLORS["sick"]),
-            ("Animale sano", HEALTH_COLORS["healthy"]),
-        )
-        for label, color in items:
-            item = self.tk.Frame(legend, bg="#f5f7fa")
-            item.pack(side="left", padx=(0, 10))
-            self.tk.Label(item, text="●", fg=color, bg="#f5f7fa").pack(side="left")
-            self.tk.Label(
-                item,
-                text=label,
-                font=("Segoe UI", 8),
-                bg="#f5f7fa",
-            ).pack(side="left")
+    def _build_staff_card(self) -> None:
+        with ui.card().classes("cras-card w-full p-5 gap-4"):
+            ui.label("Staff operativo").classes("text-lg font-black text-slate-900")
+            ui.label(
+                "Bordo giallo: accesso alla stanza autorizzato. Gli altri attendono."
+            ).classes("text-xs text-slate-500")
+            self.staff_html = ui.html(
+                '<div class="text-slate-400 text-sm">In attesa degli agenti…</div>',
+                sanitize=False,
+            ).classes("w-full").mark("staff-roster")
+
+    def _build_timeline_card(self) -> None:
+        with ui.card().classes("cras-card w-full p-5 gap-4"):
+            with ui.row().classes("w-full items-center justify-between"):
+                with ui.column().classes("gap-0"):
+                    ui.label("Cronologia live").classes(
+                        "text-lg font-black text-slate-900"
+                    )
+                    ui.label("Trigger, decisioni e azioni in ordine temporale").classes(
+                        "text-xs text-slate-500"
+                    )
+                ui.icon("sensors", color="green-600")
+            self.timeline = ui.log(max_lines=600).classes(
+                "event-log w-full h-[650px] p-3"
+            ).mark("event-timeline")
+            self.timeline.push("Connessione al Visualization Agent SPADE…")
+
+    def _build_access_card(self) -> None:
+        with ui.card().classes("cras-card w-full p-5 gap-4"):
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.label("Capacità delle aree").classes(
+                    "text-lg font-black text-slate-900"
+                )
+                self.active_value = ui.badge("0 attivi", color="green-700")
+            self.access_html = ui.html(
+                '<div class="text-slate-400 text-sm">In attesa dello stato…</div>',
+                sanitize=False,
+            ).classes("w-full").mark("area-access")
 
     def _poll_updates(self) -> None:
+        self.poll_count += 1
+        if self.poll_count == 1:
+            self.status_badge.set_text("Worker SPADE in avvio…")
         try:
-            update = self.frame_queue.get_nowait()
-        except Empty:
-            update = None
+            self._poll_updates_once()
+        except Exception as exc:
+            logger.exception("NiceGUI playback failed")
+            self._finish(exc)
+
+    def _poll_updates_once(self) -> None:
+        self.bridge.report_process_failure()
+        update = self.bridge.frame_at(self.frame_index)
         if update is not None:
+            self.frame_index += 1
             self._apply_update(update)
 
-        if self.pending_result is None:
-            try:
-                self.pending_result = self.result_queue.get_nowait()
-            except Empty:
-                pass
-        if update is None and self.pending_result is not None:
-            result = self.pending_result
-            self.pending_result = None
-            if isinstance(result, Exception):
-                self.status_var.set(f"SIMULAZIONE INTERROTTA: {result}")
-                self._append_timeline(f"ERRORE · {result}")
-            else:
-                self.result = result
-                outcome = "COMPLETATA" if result.success else "FALLITA"
-                self.status_var.set(
-                    f"SIMULAZIONE {outcome} · frame ricevuti via SPADE/XMPP"
-                )
-                self._append_timeline(
-                    f"FINE · Feeding {result.completed_feeding_tasks}/"
-                    f"{result.feeding_task_count}, Medical "
-                    f"{result.completed_medical_tasks}/{result.medical_task_count}"
-                )
-        if self.root.winfo_exists():
-            self.root.after(self.poll_interval_ms, self._poll_updates)
+        result = self.bridge.terminal_result()
+        if update is None and result is not None and not self.finished:
+            self.finished = True
+            self._finish(result)
 
     def _apply_update(self, update: VisualizationUpdate) -> None:
         if update.sequence < self.last_sequence:
             return
         self.last_sequence = update.sequence
-        self.status_var.set(
-            f"Visualization Agent SPADE connesso · evento #{update.sequence:03d}"
+        metrics = snapshot_metrics(update.snapshot)
+        self.status_badge.set_text("SPADE connesso")
+        self.status_badge.props("color=positive")
+        self.event_label.set_text(f"Evento SPADE #{update.sequence:03d}")
+        self.grid_html.set_content(render_grid_svg(update.snapshot))
+        self.staff_html.set_content(render_operator_roster(update.snapshot))
+        self.access_html.set_content(render_area_access(update.snapshot))
+        self.active_value.set_text(f"{metrics.active_operators} attivi")
+        self.healthy_value.set_text(
+            f"{metrics.healthy_animals}/{metrics.animal_count}"
         )
-        self._draw_snapshot(update.snapshot)
+        self.bowls_value.set_text(f"{metrics.filled_bowls}/{metrics.bowl_count}")
+        self.medical_value.set_text(
+            f"{metrics.completed_medical_tasks}/{metrics.medical_task_count}"
+        )
+        self.resources_value.set_text(
+            f"Cibo {metrics.food_remaining} · Medicine {metrics.medicine_remaining}"
+        )
+        self.healthy_progress.set_value(
+            _ratio(metrics.healthy_animals, metrics.animal_count)
+        )
+        self.bowls_progress.set_value(
+            _ratio(metrics.filled_bowls, metrics.bowl_count)
+        )
+        self.medical_progress.set_value(
+            _ratio(metrics.completed_medical_tasks, metrics.medical_task_count)
+        )
         entries, self.seen_activity_count = timeline_entries(
             update,
             self.seen_activity_count,
         )
         for entry in entries:
-            self._append_timeline(entry)
+            css_class = "text-slate-400" if entry.lstrip().startswith("↳") else ""
+            self.timeline.push(entry, classes=css_class)
 
-    def _draw_snapshot(self, snapshot: dict) -> None:
-        self.canvas.delete("all")
-        area_by_cell: dict[tuple[int, int], str] = {}
-        for area in snapshot["areas"]:
-            for cell in area["cells"]:
-                area_by_cell[(cell["x"], cell["y"])] = area["kind"]
-
-        for y in range(snapshot["height"]):
-            for x in range(snapshot["width"]):
-                x1, y1, x2, y2 = self._cell_box(x, y)
-                kind = area_by_cell[(x, y)]
-                self.canvas.create_rectangle(
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    fill=AREA_COLORS[kind],
-                    outline="#94a3b8",
-                )
-
-        for area in snapshot["areas"]:
-            first = min(area["cells"], key=lambda cell: (cell["y"], cell["x"]))
-            x1, y1, _, _ = self._cell_box(first["x"], first["y"])
-            self.canvas.create_text(
-                x1 + 5,
-                y1 + 5,
-                text=AREA_LABELS[area["kind"]],
-                anchor="nw",
-                font=("Segoe UI", 7, "bold"),
-                fill="#334155",
-            )
-
-        for cage in snapshot["cages"]:
-            self._draw_cage(cage)
-        for bowl in snapshot["bowls"]:
-            self._draw_bowl(bowl)
-
-        agents_by_id = {agent["id"]: agent for agent in snapshot["agents"]}
-        active_agents = {
-            agent_id
-            for access in snapshot["area_access"]
-            for agent_id in access["occupants"]
-        }
-        agents_per_cell: dict[tuple[int, int], int] = {}
-        for agent in snapshot["agents"]:
-            position = agent["position"]
-            cell = (position["x"], position["y"])
-            local_index = agents_per_cell.get(cell, 0)
-            agents_per_cell[cell] = local_index + 1
-            self._draw_agent(
-                agent,
-                local_index,
-                active=agent["id"] in active_agents,
-            )
-        for index, animal in enumerate(snapshot["animals"]):
-            position = animal["position"]
-            if animal["carried_by"] in agents_by_id:
-                position = agents_by_id[animal["carried_by"]]["position"]
-            self._draw_animal(animal, position, index)
-
-        completed_feeding = sum(
-            task["kind"] == "refill_bowl" and task["status"] == "completed"
-            for task in snapshot["tasks"]
-        )
-        completed_medical = sum(
-            task["kind"] == "treat_animal" and task["status"] == "completed"
-            for task in snapshot["tasks"]
-        )
-        healthy = sum(animal["health"] == "healthy" for animal in snapshot["animals"])
-        food = snapshot["food"][0]["quantity"] if snapshot["food"] else 0
-        medicine = snapshot["medicine"][0]["quantity"] if snapshot["medicine"] else 0
-        access_text = "  ".join(
-            f"{item['area_id']}={len(item['occupants'])}/{item['capacity']}"
-            for item in snapshot["area_access"]
-        )
-        self.summary_var.set(
-            f"Animali sani: {healthy}/{len(snapshot['animals'])}   "
-            f"Ciotole piene: {completed_feeding}/{len(snapshot['bowls'])}\n"
-            f"Task medici: {completed_medical}/{len(snapshot['animals'])}   "
-            f"Cibo: {food}   Medicinali: {medicine}\n"
-            f"Accessi attivi: {access_text}"
+    def _finish(self, result) -> None:
+        self.bridge.result = result
+        if isinstance(result, Exception):
+            self.status_badge.set_text("Simulazione interrotta")
+            self.status_badge.props("color=negative")
+            self.timeline.push(f"ERRORE · {result}", classes="text-red-300")
+            return
+        outcome = "Completata" if result.success else "Fallita"
+        self.status_badge.set_text(f"Simulazione {outcome.lower()}")
+        self.status_badge.props("color=positive" if result.success else "color=negative")
+        self.timeline.push(
+            f"FINE · Feeding {result.completed_feeding_tasks}/"
+            f"{result.feeding_task_count} · Medical "
+            f"{result.completed_medical_tasks}/{result.medical_task_count}",
+            classes="text-green-300" if result.success else "text-red-300",
         )
 
-    def _draw_cage(self, cage: dict) -> None:
-        position = cage["position"]
-        x1, y1, x2, y2 = self._cell_box(position["x"], position["y"])
-        self.canvas.create_rectangle(
-            x1 + 5,
-            y1 + 16,
-            x2 - 5,
-            y2 - 5,
-            outline="#475569",
-            width=2,
-        )
-        self.canvas.create_text(
-            x1 + 7,
-            y1 + 17,
-            text=cage["id"],
-            anchor="nw",
-            font=("Segoe UI", 6, "bold"),
-            fill="#475569",
-        )
+    def _toggle_playback(self) -> None:
+        if self.timer.active:
+            self.timer.deactivate()
+            self.pause_button.set_text("Riprendi playback")
+            self.pause_button.props("icon=play_arrow")
+        else:
+            self.timer.activate()
+            self.pause_button.set_text("Pausa playback")
+            self.pause_button.props("icon=pause")
 
-    def _draw_bowl(self, bowl: dict) -> None:
-        position = bowl["position"]
-        _, _, x2, y2 = self._cell_box(position["x"], position["y"])
-        color = "#22c55e" if bowl["level"] == bowl["capacity"] else "#ef4444"
-        self.canvas.create_oval(x2 - 18, y2 - 16, x2 - 7, y2 - 7, fill=color, outline="")
-
-    def _draw_animal(self, animal: dict, position: dict, index: int) -> None:
-        x1, y1, _, _ = self._cell_box(position["x"], position["y"])
-        offset = (index % 3) * 4
-        color = HEALTH_COLORS.get(animal["health"], "#64748b")
-        self.canvas.create_oval(
-            x1 + 20 + offset,
-            y1 + 28,
-            x1 + 40 + offset,
-            y1 + 48,
-            fill=color,
-            outline="white",
-            width=1,
-        )
-        self.canvas.create_text(
-            x1 + 30 + offset,
-            y1 + 38,
-            text=animal["species"][:1].upper(),
-            fill="white",
-            font=("Segoe UI", 7, "bold"),
-        )
-
-    def _draw_agent(self, agent: dict, index: int, active: bool) -> None:
-        position = agent["position"]
-        x1, y1, _, _ = self._cell_box(position["x"], position["y"])
-        offset = (index % 3) * 15
-        color = ROLE_COLORS[agent["role"]]
-        self.canvas.create_rectangle(
-            x1 + 5 + offset,
-            y1 + 4,
-            x1 + 18 + offset,
-            y1 + 17,
-            fill=color,
-            outline="#facc15" if active else "white",
-            width=3 if active else 1,
-        )
-        self.canvas.create_text(
-            x1 + 11 + offset,
-            y1 + 10,
-            text=ROLE_LABELS[agent["role"]],
-            fill="white",
-            font=("Segoe UI", 7, "bold"),
-        )
-
-    def _append_timeline(self, text: str) -> None:
-        self.timeline.configure(state="normal")
-        self.timeline.insert("end", f"{text}\n")
-        self.timeline.see("end")
-        self.timeline.configure(state="disabled")
-
-    @staticmethod
-    def _cell_box(x: int, y: int) -> tuple[int, int, int, int]:
-        x1 = GRID_MARGIN + x * CELL_SIZE
-        y1 = GRID_MARGIN + y * CELL_SIZE
-        return x1, y1, x1 + CELL_SIZE, y1 + CELL_SIZE
-
-    def _close(self) -> None:
-        self.root.destroy()
+    def _set_speed(self, event) -> None:
+        self.timer.interval = max(0.05, float(event.value))
 
 
 def run_graphical_simulation(
@@ -411,66 +331,57 @@ def run_graphical_simulation(
     medicine: int | None,
     timeout_seconds: float,
     step_delay_seconds: float,
+    port: int = 8080,
+    show_browser: bool = True,
 ):
-    """Mantiene SPADE nel processo principale e Tk nel processo grafico."""
+    """Esegue NiceGUI come server principale e SPADE come processo autonomo."""
 
-    from tamagotchi_wild.simulation import run_simulation
-
-    context = get_context("spawn")
-    frame_queue = context.Queue()
-    result_queue = context.Queue()
-    process = context.Process(
-        target=_gui_worker,
-        args=(
-            frame_queue,
-            result_queue,
-            config,
-            step_delay_seconds,
-        ),
-        name="cras-gui",
-        daemon=True,
-    )
-    process.start()
-    try:
-        result = run_simulation(
-            config,
-            food,
-            medicine,
-            timeout_seconds,
-            visualization_queue=frame_queue,
-        )
-        result_queue.put(result)
-        process.join()
-        if process.exitcode not in (0, None):
-            raise RuntimeError(
-                f"the graphical process stopped with exit code {process.exitcode}"
-            )
-        return result
-    except Exception as exc:
-        result_queue.put(exc)
-        process.join()
-        raise
-    finally:
-        if process.is_alive():
-            process.terminate()
-            process.join(timeout=2)
-        frame_queue.cancel_join_thread()
-        result_queue.cancel_join_thread()
-        frame_queue.close()
-        result_queue.close()
-
-
-def _gui_worker(
-    frame_queue,
-    result_queue,
-    config: SimulationConfig,
-    step_delay_seconds: float,
-) -> None:
-    """Crea Tk nel main thread del processo dedicato alla finestra."""
-
-    RescueCenterGUI(
-        frame_queue,
-        result_queue,
+    bridge = SimulationBridge(
         config,
-        step_delay_seconds,
-    ).run()
+        food,
+        medicine,
+        timeout_seconds,
+    )
+    bridge.start()
+    app.on_shutdown(bridge.stop)
+
+    def dashboard() -> None:
+        try:
+            ui.colors(
+                primary="#15803d",
+                secondary="#2563eb",
+                accent="#7c3aed",
+                positive="#16a34a",
+                negative="#dc2626",
+            )
+            ui.add_css(NICEGUI_CSS)
+            RescueCenterDashboard(
+                bridge,
+                config,
+                step_delay_seconds,
+            )
+        except Exception as exc:
+            logger.exception("NiceGUI dashboard construction failed")
+            ui.label(f"Dashboard error: {type(exc).__name__}: {exc}")
+
+    try:
+        ui.run(
+            root=dashboard,
+            host="127.0.0.1",
+            port=port,
+            title="Tamagotchi Wild Edition · SPADE",
+            favicon="🐾",
+            language="it",
+            dark=False,
+            show=show_browser,
+            reload=False,
+            show_welcome_message=False,
+            uvicorn_logging_level="warning",
+        )
+        return bridge.result
+    finally:
+        bridge.stop()
+
+
+def _ratio(value: int, total: int) -> float:
+    return value / total if total else 0.0

@@ -12,7 +12,7 @@ Ogni fase deve poter essere verificata automaticamente sul PC di sviluppo. La GU
 | Componente | Singolo agente o Environment Agent | SPADE, trasporto controllato |
 | Integrazione | Scambio tra più agenti | Server XMPP integrato |
 | Scenario | Workflow CRAS completo | Sistema locale completo |
-| Manuale | Grafica, leggibilità e demo | Tkinter e osservazione umana |
+| Manuale | Grafica, leggibilità e demo | NiceGUI nel browser locale |
 
 ## Priorità iniziali
 

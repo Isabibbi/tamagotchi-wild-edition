@@ -10,6 +10,14 @@ from tamagotchi_wild.visualization.timeline import (
     describe_environment_event,
     timeline_entries,
 )
+from tamagotchi_wild.visualization.nicegui_view import (
+    DashboardMetrics,
+    render_area_access,
+    render_grid_svg,
+    render_operator_roster,
+    render_placeholder_svg,
+    snapshot_metrics,
+)
 
 __all__ = [
     "CellProjection",
@@ -18,4 +26,10 @@ __all__ = [
     "describe_activity",
     "describe_environment_event",
     "timeline_entries",
+    "DashboardMetrics",
+    "render_area_access",
+    "render_grid_svg",
+    "render_operator_roster",
+    "render_placeholder_svg",
+    "snapshot_metrics",
 ]
