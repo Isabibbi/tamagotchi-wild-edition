@@ -17,6 +17,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--food", type=int)
     parser.add_argument("--medicine", type=int)
     parser.add_argument("--timeout", type=float, default=60.0)
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="apre la griglia live e la cronologia ricevute via SPADE",
+    )
+    parser.add_argument(
+        "--gui-delay",
+        type=float,
+        default=0.20,
+        help="secondi tra due aggiornamenti grafici (default: 0.20)",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
@@ -27,6 +38,12 @@ def main() -> int:
         args.medicine is not None and args.medicine < 0
     ):
         raise SystemExit("resource quantities must not be negative")
+    if args.timeout <= 0:
+        raise SystemExit("timeout must be greater than zero")
+    if args.gui_delay < 0:
+        raise SystemExit("gui delay must not be negative")
+    if args.gui and args.as_json:
+        raise SystemExit("--gui and --json cannot be used together")
     try:
         config = SimulationConfig(
             veterinary_agents=args.veterinary_agents,
@@ -36,12 +53,25 @@ def main() -> int:
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    result = run_simulation(
-        config,
-        food=args.food,
-        medicine=args.medicine,
-        timeout_seconds=args.timeout,
-    )
+    if args.gui:
+        from tamagotchi_wild.gui import run_graphical_simulation
+
+        result = run_graphical_simulation(
+            config,
+            food=args.food,
+            medicine=args.medicine,
+            timeout_seconds=args.timeout,
+            step_delay_seconds=args.gui_delay,
+        )
+        if result is None:
+            return 0
+    else:
+        result = run_simulation(
+            config,
+            food=args.food,
+            medicine=args.medicine,
+            timeout_seconds=args.timeout,
+        )
     print_result(result, args.as_json)
     return 0 if result.success else 1
 

@@ -12,7 +12,7 @@ Ogni fase deve poter essere verificata automaticamente sul PC di sviluppo. La GU
 | Componente | Singolo agente o Environment Agent | SPADE, trasporto controllato |
 | Integrazione | Scambio tra più agenti | Server XMPP integrato |
 | Scenario | Workflow CRAS completo | Sistema locale completo |
-| Manuale | Grafica, leggibilità e demo | Pygame e osservazione umana |
+| Manuale | Grafica, leggibilità e demo | Tkinter e osservazione umana |
 
 ## Priorità iniziali
 
@@ -30,7 +30,8 @@ Ogni fase deve poter essere verificata automaticamente sul PC di sviluppo. La GU
 | Magazzino vuoto ✅ | Ciotola vuota, cibo assente | Verificato: task `rejected`, nessuna modifica incoerente |
 | Richiesta duplicata ✅ | Stesso `task_id` inviato due volte | Verificato: una sola esecuzione |
 | Cura completa ✅ | Animale malato in gabbia | Verificato: animale sano e riportato in gabbia |
-| Area piena | Capacità raggiunta | Agente in attesa o rifiuto controllato |
+| Area piena ✅ | Capacità raggiunta | Verificato: agente in attesa e capacità mai oltre 2 |
+| Stream grafico SPADE ✅ | Simulazione integrata con Visualization Agent | Verificato: snapshot iniziale, azioni e stato finale ricevuti |
 
 ## Rendere i test deterministici
 
@@ -67,6 +68,7 @@ Il repository offre questi comandi:
 .\.my_sdai\Scripts\python.exe -m pytest tests/integration
 .\.my_sdai\Scripts\python.exe -m pytest tests/scenarios
 .\.my_sdai\Scripts\python.exe -m tamagotchi_wild
+.\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5
 ```
 
 I comandi definitivi dovranno essere riportati nel README e provati da una nuova shell, senza dipendere dallo stato dell'IDE.

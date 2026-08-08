@@ -8,6 +8,7 @@ Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 > 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
 > massimo 2 operatori contemporaneamente. Anche il numero degli animali è
 > configurabile: ogni animale genera automaticamente gabbia, ciotola e due task.
+> È disponibile una GUI live con griglia e cronologia degli eventi SPADE.
 
 ## Agenti
 
@@ -17,12 +18,14 @@ Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 | **Logistics** | Trasporta gli animali e coordina il rifornimento delle ciotole |
 | **Feeding** | Preleva il cibo e riempie le ciotole |
 | **Environment** | Mantiene lo stato autorevole, assegna atomicamente i task e controlla gli accessi alle aree |
+| **Visualization** | Riceve via SPADE/XMPP gli snapshot dell'Environment e li consegna alla GUI |
 
 La simulazione predefinita avvia contemporaneamente:
 
 ```text
 2 Veterinary + 3 Logistics + 2 Feeding = 7 operatori
 1 Environment Agent aggiuntivo = 8 agenti SPADE attivi
+Con la GUI: 1 Visualization Agent aggiuntivo = 9 agenti SPADE attivi
 ```
 
 Alimentazione e cure non sono modalità alternative: i due flussi partono nella
@@ -59,6 +62,30 @@ messaggi. Non può mai superare `2`.
 
 ## Configurazione a runtime
 
+### Interfaccia grafica
+
+Per vedere la simulazione, usare lo stesso comando con `--gui`:
+
+```powershell
+& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5
+```
+
+La finestra mostra:
+
+- a sinistra, la griglia 12×8 con aree, operatori, animali, gabbie e ciotole;
+- in giallo, il bordo degli operatori che occupano una stanza;
+- a destra, risorse, task completati e occupazione corrente delle aree;
+- nella cronologia, percezioni, richieste, movimenti, azioni e attese;
+- alla fine, l'esito complessivo senza chiudere automaticamente la finestra.
+
+Gli aggiornamenti non accedono direttamente allo stato della simulazione:
+l'Environment invia messaggi JSON con ontologia `cras.visualization` al
+Visualization Agent SPADE. Tkinter si limita a disegnare ciò che questo agente
+riceve. `--gui-delay 0.20` regola i secondi fra due frame; non rallenta i flussi
+interni degli agenti.
+
+### Parametri della simulazione
+
 Esempio con cinque animali e cinque casi completi:
 
 ```powershell
@@ -93,6 +120,8 @@ Opzioni aggiuntive:
 --food N       quantità iniziale di cibo; default uguale agli animali
 --medicine N   quantità iniziale di medicinali; default uguale agli animali
 --timeout N    timeout in secondi
+--gui          apre griglia e cronologia live
+--gui-delay N  secondi fra due frame grafici; default 0.20
 --json         risultato finale in JSON
 ```
 
@@ -104,19 +133,22 @@ Opzioni aggiuntive:
 
 I test verificano la configurazione fino a 7 operatori e 40 animali,
 l'assegnazione univoca dei task, il limite di 2 accessi e un'esecuzione
-end-to-end con 5 animali e 10 task. Il server XMPP integrato viene avviato e
-arrestato automaticamente; non servono Internet né credenziali esterne.
+end-to-end con 5 animali e 10 task. Un test dedicato avvia anche il
+Visualization Agent e verifica che gli snapshot arrivino realmente via SPADE.
+Il server XMPP integrato viene avviato e arrestato automaticamente; non servono
+Internet né credenziali esterne.
 
 ## Struttura principale
 
 ```text
 src/tamagotchi_wild/
-├── agents/          # agenti SPADE-BDI e accesso concorrente alle aree
+├── agents/          # agenti SPADE-BDI, Environment e Visualization
 ├── bdi/             # piani AgentSpeak dei tre ruoli
 ├── domain/          # entità e comandi del dominio
 ├── environment/     # stato autorevole, claim atomici e capacità
 ├── messaging/       # contratti JSON e metadata FIPA
-├── visualization/   # proiezione read-only per la futura GUI
+├── visualization/   # proiezione read-only e traduzione della cronologia
+├── gui.py           # rendering Tkinter della simulazione live
 ├── simulation.py    # unica simulazione integrata
 └── main.py          # parametri da terminale
 ```

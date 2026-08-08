@@ -12,7 +12,7 @@ La roadmap è organizzata per risultati dimostrabili. Ogni fase deve lasciare il
 | 3 — Cure mediche ✅ | Aggiungere trasporto e trattamento | Animale malato torna curato in gabbia | Completata: ciclo SPADE-BDI e transizioni verificati |
 | 4 — Scalabilità ✅ | Avviare più agenti e casi | Fino a 7 operatori e 40 animali configurabili | Completata: casi generati, distribuzione round-robin e claim atomici |
 | 5 — Concorrenza ✅ | Applicare capacità alle aree | Gli agenti attendono senza violare i limiti | Completata: massimo 2 accessi, attesa e rilascio verificati |
-| 6 — Demo finale | Integrare GUI e osservabilità | Scenario completo visibile e riproducibile | Avvio documentato su PC pulito |
+| 6 — Demo finale ✅ | Integrare GUI e osservabilità | Scenario completo visibile e riproducibile | Completata: griglia e cronologia alimentate da un Visualization Agent SPADE |
 
 ## Fase 0 — Spike tecnico
 
@@ -86,6 +86,17 @@ capienza 2; un agente attende e riprova quando la stanza è piena. Il dettaglio 
 in [Scalabilità e concorrenza](06_scalabilita_e_concorrenza.md).
 La generazione dei casi è descritta in
 [Scalabilità degli animali](07_scalabilita_animali.md).
+
+## Fase 6 — Interfaccia grafica e osservabilità
+
+**Stato: completata.** La simulazione integrata può essere avviata con `--gui`.
+Un Visualization Agent SPADE riceve dall'Environment snapshot versionati e
+aggiorna la griglia 2D. La cronologia mostra sia gli eventi dell'ambiente sia le
+richieste di cooperazione fra ruoli, compresi i tentativi di accesso che devono
+attendere quando un'area ha già due occupanti.
+
+Il dettaglio dell'architettura e dei simboli è in
+[Interfaccia grafica SPADE](08_interfaccia_grafica_spade.md).
 
 ## Registro delle decisioni
 

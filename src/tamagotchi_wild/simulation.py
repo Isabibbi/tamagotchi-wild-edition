@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import asdict, dataclass
 import json
+from queue import Queue
 
 import spade
 
@@ -12,6 +13,7 @@ from tamagotchi_wild.agents import (
     EnvironmentAgent,
     FeedingAgent,
     LogisticsAgent,
+    VisualizationAgent,
     VeterinaryAgent,
 )
 from tamagotchi_wild.config import SimulationConfig, create_default_environment
@@ -36,6 +38,7 @@ from tamagotchi_wild.observability import ActivityLog, MessageTrace
 
 PASSWORD = "local-cras-password"
 ENVIRONMENT_JID = "environment@localhost"
+VISUALIZATION_JID = "visualization@localhost"
 FOOD_STOCK_ID = "food_stock_01"
 MEDICINE_STOCK_ID = "medicine_stock_01"
 FOOD_POSITION = Position(1, 1)
@@ -241,6 +244,7 @@ async def execute_simulation(
     food: int | None = None,
     medicine: int | None = None,
     timeout_seconds: float = 60.0,
+    visualization_queue: Queue | None = None,
 ) -> SimulationResult:
     food_quantity = config.animal_count if food is None else food
     medicine_quantity = config.animal_count if medicine is None else medicine
@@ -260,6 +264,14 @@ async def execute_simulation(
         world,
         activity_log,
         message_trace,
+        visualization_jid=(
+            VISUALIZATION_JID if visualization_queue is not None else None
+        ),
+    )
+    visualization = (
+        VisualizationAgent(VISUALIZATION_JID, PASSWORD, visualization_queue)
+        if visualization_queue is not None
+        else None
     )
     feeding_agents = [
         FeedingAgent(
@@ -311,6 +323,13 @@ async def execute_simulation(
     error: str | None = None
 
     try:
+        if visualization is not None:
+            await visualization.start(auto_register=True)
+            started.append(visualization)
+            await asyncio.wait_for(
+                visualization.ready.wait(),
+                timeout=timeout_seconds,
+            )
         await environment.start(auto_register=True)
         started.append(environment)
         for agent in operators:
@@ -320,6 +339,8 @@ async def execute_simulation(
             asyncio.gather(*(agent.bdi_ready.wait() for agent in operators)),
             timeout=timeout_seconds,
         )
+        if visualization is not None:
+            await environment.publish_initial_visual_state(timeout_seconds)
 
         await asyncio.gather(
             *(
@@ -353,6 +374,8 @@ async def execute_simulation(
                 timeout_seconds,
             ),
         )
+        if visualization is not None:
+            await asyncio.sleep(0.2)
     except TimeoutError:
         error = f"integrated simulation timed out after {timeout_seconds:g} seconds"
     except Exception as exc:
@@ -449,7 +472,9 @@ async def execute_simulation(
     return SimulationResult(
         success=success,
         operator_count=config.operator_count,
-        spade_agent_count=config.operator_count + 1,
+        spade_agent_count=(
+            config.operator_count + 1 + (1 if visualization is not None else 0)
+        ),
         veterinary_agents=config.veterinary_agents,
         logistics_agents=config.logistics_agents,
         feeding_agents=config.feeding_agents,
@@ -486,6 +511,7 @@ def run_simulation(
     food: int | None = None,
     medicine: int | None = None,
     timeout_seconds: float = 60.0,
+    visualization_queue: Queue | None = None,
 ) -> SimulationResult:
     holder: dict[str, SimulationResult] = {}
 
@@ -495,6 +521,7 @@ def run_simulation(
             food,
             medicine,
             timeout_seconds,
+            visualization_queue,
         )
 
     spade.run(run(), embedded_xmpp_server=True)

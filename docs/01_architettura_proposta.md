@@ -2,18 +2,18 @@
 
 ## Stato di implementazione
 
-**Preview 01 completata.** Sono stati implementati i confini architetturali
+**Architettura implementata fino alla Fase 6.** Sono stati implementati i confini architetturali
 descritti in questo documento:
 
 - `domain/`: entità tipizzate, stati finiti e comandi;
 - `environment/`: griglia autorevole, validazione atomica, snapshot ed eventi;
 - `messaging/`: payload JSON versionati e metadata FIPA;
-- `agents/`: adattatore SPADE dell'`EnvironmentAgent`;
-- `visualization/`: proiezione immutabile per la futura vista 2D.
+- `agents/`: ruoli SPADE-BDI, `EnvironmentAgent` e `VisualizationAgent`;
+- `visualization/`: proiezione immutabile e cronologia leggibile;
+- `gui.py`: vista Tkinter alimentata soltanto dal Visualization Agent.
 
-La simulazione integrata si avvia con `python -m tamagotchi_wild`; i test si eseguono con
-`python -m pytest`. La GUI e i piani BDI dei tre ruoli appartengono agli
-incrementi successivi.
+La simulazione integrata si avvia con `python -m tamagotchi_wild`; aggiungendo
+`--gui` si apre la vista live. I test si eseguono con `python -m pytest`.
 
 ## Principio guida
 
@@ -25,14 +25,16 @@ flowchart LR
     L["Logistics Agent"]
     F["Feeding Agent"]
     E["Environment Agent\nfonte dello stato"]
-    G["Pygame View\nsola visualizzazione"]
+    X["Visualization Agent\nSPADE"]
+    G["Tkinter GUI\nsola visualizzazione"]
 
     V <-->|"messaggi e azioni"| E
     L <-->|"messaggi e azioni"| E
     F <-->|"messaggi e azioni"| E
     V <-->|"richieste di trasporto"| L
     L <-->|"richieste di alimentazione"| F
-    E -->|"snapshot/eventi"| G
+    E -->|"SPADE: cras.visualization"| X
+    X -->|"snapshot read-only"| G
 ```
 
 ## Componenti
@@ -42,7 +44,7 @@ flowchart LR
 | AgentSpeak `.asl` | Belief, goal, condizioni e scelta dei piani | Modificare direttamente griglia o risorse |
 | Agenti Python | Ciclo di vita, messaggi, percezioni e custom actions | Conservare copie autorevoli dell'ambiente |
 | `EnvironmentAgent` | Stato, validazione azioni, collisioni e capacità | Decidere gli obiettivi degli agenti operativi |
-| Dominio | Entità e regole pure | Dipendere da SPADE o Pygame |
+| Dominio | Entità e regole pure | Dipendere da SPADE o Tkinter |
 | Visualizzazione | Render della griglia e degli eventi | Modificare direttamente lo stato del dominio |
 
 ## Confine tra BDI e Python
@@ -73,12 +75,13 @@ src/
     ├── __init__.py
     ├── main.py                 # composizione e avvio del sistema
     ├── config.py               # configurazione non segreta
-    ├── agents/                 # classi SPADE dei ruoli
+    ├── agents/                 # ruoli SPADE-BDI, Environment e Visualization
     ├── bdi/                    # piani AgentSpeak .asl
     ├── domain/                 # animali, aree, task e regole pure
     ├── environment/            # stato della griglia e azioni atomiche
     ├── messaging/              # contratti, metadata e serializzazione
-    └── visualization/          # rendering Pygame
+    ├── visualization/          # proiezione e cronologia read-only
+    └── gui.py                  # rendering Tkinter
 ```
 
 I test dovrebbero rispecchiare questi confini:
@@ -130,9 +133,10 @@ Non usare frasi libere come contratto applicativo: sono difficili da validare e 
 
 ## Stato e concorrenza
 
-L'`EnvironmentAgent` deve applicare ogni azione in modo atomico: controlla precondizioni, aggiorna lo stato e pubblica il risultato. In seguito, lo stesso punto di controllo potrà gestire capacità e code senza cambiare la logica di ogni ruolo.
-
-Per il primo incremento usare un solo agente per ruolo. Introdurre `N` agenti solo dopo che task e identificativi di conversazione impediscono duplicazioni.
+L'`EnvironmentAgent` applica ogni azione in modo atomico: controlla
+precondizioni, aggiorna lo stato e pubblica il risultato. Lo stesso punto di
+controllo gestisce capacità 2 e claim univoci. Il pool configurabile di `N`
+agenti usa task e identificativi di conversazione per impedire duplicazioni.
 
 ## Decisioni da validare con esperimenti
 
@@ -140,7 +144,7 @@ Per il primo incremento usare un solo agente per ruolo. Introdurre `N` agenti so
 |---|---|---|
 | SPADE 4.1.x + SPADE-BDI 0.3.2 | Avvio e messaggio tra due `BDIAgent` | Nessun errore di compatibilità |
 | Server XMPP integrato | Esecuzione locale ripetuta | Nessun setup manuale tra due avvii |
-| Pygame | Render di griglia e 10 entità | Aggiornamento fluido e codice separato |
+| Visualization Agent + Tkinter | Stream SPADE, griglia e cronologia | Validato: aggiornamenti XMPP e renderer separato |
 | JSON nei messaggi | Round-trip e payload invalido | Errore chiaro e contratto versionabile |
 
 ## Riferimenti verificati

@@ -20,6 +20,8 @@ from tamagotchi_wild.messaging import (
     MessageContractError,
     PERCEPTION_ONTOLOGY,
     SickAnimalPerception,
+    VISUALIZATION_ONTOLOGY,
+    VisualizationUpdate,
     workflow_metadata,
 )
 from tamagotchi_wild.domain import ActionType
@@ -77,6 +79,26 @@ class EnvironmentAgent(Agent):
             )
             if request is not None and response_data.accepted:
                 self.agent._record_action(request)
+                if response_data.event_sequence is not None:
+                    await self.agent._send_visualization_update(
+                        self,
+                        response_data.event_sequence,
+                    )
+            elif request is not None and self.agent.visualization_jid is not None:
+                await self.agent._send_visualization_rejection(
+                    self,
+                    request,
+                    response_data.reason,
+                )
+
+    class VisualStateSender(OneShotBehaviour):
+        def __init__(self, sent: asyncio.Event) -> None:
+            super().__init__()
+            self.sent = sent
+
+        async def run(self) -> None:
+            await self.agent._send_visualization_update(self, None)
+            self.sent.set()
 
     class PerceptionSender(OneShotBehaviour):
         def __init__(
@@ -149,11 +171,13 @@ class EnvironmentAgent(Agent):
         world: EnvironmentState,
         activity_log: ActivityLog | None = None,
         message_trace: MessageTrace | None = None,
+        visualization_jid: str | None = None,
     ) -> None:
         self.world = world
         self.activity_log = activity_log or ActivityLog()
         self.message_trace = message_trace or MessageTrace()
         self.agent_label = jid.split("@", 1)[0]
+        self.visualization_jid = visualization_jid
         super().__init__(jid, password)
 
     async def setup(self) -> None:
@@ -179,6 +203,16 @@ class EnvironmentAgent(Agent):
                 sent,
             )
         )
+        await asyncio.wait_for(sent.wait(), timeout=timeout_seconds)
+
+    async def publish_initial_visual_state(
+        self,
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        if self.visualization_jid is None:
+            return
+        sent = asyncio.Event()
+        self.add_behaviour(self.VisualStateSender(sent))
         await asyncio.wait_for(sent.wait(), timeout=timeout_seconds)
 
     async def publish_sick_animal(
@@ -250,3 +284,71 @@ class EnvironmentAgent(Agent):
                 event_by_action[request.requested_action],
                 target=request.target_id,
             )
+
+    async def _send_visualization_update(
+        self,
+        behaviour,
+        event_sequence: int | None,
+    ) -> None:
+        if self.visualization_jid is None:
+            return
+        event = None
+        if event_sequence is not None:
+            event = next(
+                (
+                    item
+                    for item in self.world.events
+                    if item.sequence == event_sequence
+                ),
+                None,
+            )
+        update = VisualizationUpdate.from_world(
+            self.world.snapshot(),
+            event,
+            self.activity_log.lines,
+        )
+        conversation_id = f"visual-{update.sequence:06d}"
+        message = Message(to=self.visualization_jid, body=update.to_json())
+        message.thread = conversation_id
+        message.set_metadata("performative", "inform")
+        message.set_metadata("ontology", VISUALIZATION_ONTOLOGY)
+        message.set_metadata("language", MESSAGE_LANGUAGE)
+        message.set_metadata("conversation-id", conversation_id)
+        await behaviour.send(message)
+        self.message_trace.record(
+            self.agent_label,
+            self.visualization_jid.split("@", 1)[0],
+            VISUALIZATION_ONTOLOGY,
+            "inform",
+            conversation_id,
+        )
+
+    async def _send_visualization_rejection(
+        self,
+        behaviour,
+        request: ActionRequest,
+        reason: str,
+    ) -> None:
+        if self.visualization_jid is None:
+            return
+        update = VisualizationUpdate.from_rejected_action(
+            self.world.snapshot(),
+            request,
+            reason,
+            self.activity_log.lines,
+        )
+        conversation_id = f"visual-wait-{request.actor_id}-{update.sequence:06d}"
+        message = Message(to=self.visualization_jid, body=update.to_json())
+        message.thread = conversation_id
+        message.set_metadata("performative", "inform")
+        message.set_metadata("ontology", VISUALIZATION_ONTOLOGY)
+        message.set_metadata("language", MESSAGE_LANGUAGE)
+        message.set_metadata("conversation-id", conversation_id)
+        await behaviour.send(message)
+        self.message_trace.record(
+            self.agent_label,
+            self.visualization_jid.split("@", 1)[0],
+            VISUALIZATION_ONTOLOGY,
+            "inform",
+            conversation_id,
+        )

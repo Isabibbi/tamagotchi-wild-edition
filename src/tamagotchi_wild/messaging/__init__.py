@@ -24,6 +24,10 @@ from tamagotchi_wild.messaging.medical import (
     TransportRequest,
     TransportStatus,
 )
+from tamagotchi_wild.messaging.visualization import (
+    VISUALIZATION_ONTOLOGY,
+    VisualizationUpdate,
+)
 
 __all__ = [
     "ActionRequest",
@@ -44,4 +48,6 @@ __all__ = [
     "TRANSPORT_ONTOLOGY",
     "TransportRequest",
     "TransportStatus",
+    "VISUALIZATION_ONTOLOGY",
+    "VisualizationUpdate",
 ]

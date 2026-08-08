@@ -4,12 +4,12 @@ Questo documento è il punto di ingresso operativo del progetto. L'obiettivo è 
 
 ## Stato di avanzamento
 
-**Fasi 4 e 5 completate:** alimentazione e cure mediche vengono eseguite insieme
+**Fasi 4, 5 e 6 completate:** alimentazione e cure mediche vengono eseguite insieme
 da un massimo di 7 operatori configurabili. Anche gli animali sono configurabili
 da 1 a 40, con gabbia, ciotola e due task dedicati. L'Environment assegna ogni
-fase a un solo agente e limita a 2 gli accessi contemporanei a ciascuna area.
-
-La visualizzazione grafica resta l'incremento successivo.
+fase a un solo agente e limita a 2 gli accessi contemporanei a ciascuna area. La
+GUI con griglia e cronologia riceve gli aggiornamenti tramite un Visualization
+Agent SPADE.
 
 ## Decisioni consigliate subito
 
@@ -19,7 +19,7 @@ La visualizzazione grafica resta l'incremento successivo.
 | Ragionamento | AgentSpeak per obiettivi e piani; Python per azioni ed effetti | Mantiene il BDI leggibile senza forzare la logica operativa in `.asl` |
 | Comunicazione | Messaggi SPADE con metadata FIPA e body JSON | Consente filtri, tracciamento e validazione dei messaggi |
 | XMPP locale | Server integrato di SPADE durante lo sviluppo | Riduce il setup iniziale e rende i test ripetibili sul PC |
-| Visualizzazione | Pygame come prima scelta, separato dalla logica | È adatto a una griglia 2D e non deve diventare fonte dello stato |
+| Visualizzazione | Visualization Agent SPADE e renderer Tkinter separato | La GUI riceve snapshot JSON e non diventa fonte dello stato; Tkinter non aggiunge dipendenze |
 
 Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambiate solo dopo un esperimento che mostri un problema concreto.
 
@@ -29,7 +29,7 @@ Queste decisioni sono una baseline, non vincoli permanenti. Devono essere cambia
 2. ~~Modellare il dominio senza grafica: griglia, aree, animali, ciotole, agenti e azioni valide.~~ **Completato in Preview 01.**
 3. ~~Implementare una singola fetta verticale: Logistics rileva una ciotola vuota e Feeding la riempie.~~ **Completato nella Fase 2.**
 4. ~~Implementare trasporto, cura e rientro dell'animale.~~ **Completato nella Fase 3.**
-5. Aggiungere visualizzazione, più agenti e controllo della concorrenza come obiettivi avanzati.
+5. ~~Aggiungere più agenti, concorrenza e visualizzazione SPADE.~~ **Completato nelle Fasi 4–6.**
 
 ## Primo risultato da ottenere
 
@@ -73,5 +73,6 @@ Un incremento è concluso quando:
 - [Roadmap incrementale](02_roadmap_incrementale.md)
 - [Primo incremento: alimentazione](03_primo_incremento_alimentazione.md)
 - [Strategia di test](04_strategia_test.md)
+- [Interfaccia grafica SPADE](08_interfaccia_grafica_spade.md)
 - [Schemi degli agenti e dei flussi](schemi_agenti_flussi.md)
 - [Linee guida generali](linee_guida_progetto.md)
