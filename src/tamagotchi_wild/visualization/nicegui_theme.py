@@ -33,14 +33,19 @@ body {
   background: linear-gradient(145deg, #ffffff, #f8fafc);
   box-shadow: 0 8px 28px rgba(15, 23, 42, .05);
 }
-.grid-shell svg {
+.floorplan-shell {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #d8e1dc;
+}
+.floorplan-shell svg {
   width: 100%;
   height: auto;
   display: block;
   border-radius: 1rem;
-  filter: drop-shadow(0 12px 22px rgba(15, 23, 42, .09));
+  filter: drop-shadow(0 14px 25px rgba(15, 23, 42, .14));
 }
-.grid-shell,
+.floorplan-shell,
 .event-log {
   min-width: 0;
 }
@@ -62,15 +67,34 @@ body {
   border-color: #facc15;
   background: #fffbeb;
 }
-.staff-dot {
-  display: grid;
-  place-items: center;
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  color: white;
-  font-weight: 800;
-  box-shadow: 0 3px 10px rgba(15, 23, 42, .18);
+.staff-person {
+  position: relative;
+  display: block;
+  flex: 0 0 2.15rem;
+  width: 2.15rem;
+  height: 2.65rem;
+}
+.staff-head {
+  position: absolute;
+  top: .05rem;
+  left: .68rem;
+  width: .82rem;
+  height: .82rem;
+  border-radius: 50%;
+  background: #d9a47f;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .18);
+}
+.staff-body {
+  position: absolute;
+  left: .39rem;
+  bottom: 0;
+  width: 1.38rem;
+  height: 1.66rem;
+  border-radius: .65rem .65rem .35rem .35rem;
+  background: var(--uniform);
+  border: 2px solid #fff;
+  box-shadow: 0 3px 9px rgba(15, 23, 42, .18);
 }
 .staff-chip span:last-child { display: flex; flex-direction: column; }
 .staff-chip strong { color: #0f172a; font-size: .78rem; }

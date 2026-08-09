@@ -8,7 +8,7 @@ Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
 > 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
 > massimo 2 operatori contemporaneamente. Anche il numero degli animali è
 > configurabile: ogni animale genera automaticamente gabbia, ciotola e due task.
-> È disponibile una GUI live con griglia e cronologia degli eventi SPADE.
+> È disponibile una GUI live con pianta illustrata e cronologia degli eventi SPADE.
 
 ## Agenti
 
@@ -72,8 +72,9 @@ Per vedere la simulazione, usare lo stesso comando con `--gui`:
 
 Il browser si apre su una dashboard NiceGUI locale e mostra:
 
-- a sinistra, la griglia 12×8 con aree, operatori, animali, gabbie e ciotole;
-- in giallo, il bordo degli operatori che occupano una stanza;
+- a sinistra, una pianta illustrata del CRAS senza celle o griglia visibile;
+- quattro stanze arredate, gabbie con sbarre, animali e ciotole riconoscibili;
+- tutti gli operatori come figure umane, animate mentre entrano o escono dalle stanze;
 - a destra, risorse, task completati e occupazione corrente delle aree;
 - nella cronologia, percezioni, richieste, movimenti, azioni e attese;
 - alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
@@ -123,7 +124,7 @@ Opzioni aggiuntive:
 --food N       quantità iniziale di cibo; default uguale agli animali
 --medicine N   quantità iniziale di medicinali; default uguale agli animali
 --timeout N    timeout in secondi
---gui          apre griglia e cronologia live
+--gui          apre pianta illustrata e cronologia live
 --gui-delay N  secondi fra due frame grafici; default 0.20
 --gui-port N   porta locale della dashboard; default 8080
 --gui-no-browser  avvia il server senza aprire automaticamente il browser

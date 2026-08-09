@@ -13,6 +13,7 @@ from tamagotchi_wild.visualization.timeline import (
 from tamagotchi_wild.visualization.nicegui_view import (
     DashboardMetrics,
     render_area_access,
+    render_floorplan_svg,
     render_grid_svg,
     render_operator_roster,
     render_placeholder_svg,
@@ -28,6 +29,7 @@ __all__ = [
     "timeline_entries",
     "DashboardMetrics",
     "render_area_access",
+    "render_floorplan_svg",
     "render_grid_svg",
     "render_operator_roster",
     "render_placeholder_svg",

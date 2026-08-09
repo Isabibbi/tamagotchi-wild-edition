@@ -13,7 +13,7 @@ introduce un secondo scenario.
 3. L'Environment serializza uno snapshot JSON con ontologia `cras.visualization`.
 4. Il Visualization Agent riceve lo snapshot via SPADE/XMPP.
 5. Il worker SPADE inoltra l'oggetto read-only attraverso un canale locale autenticato.
-6. NiceGUI riproduce i frame nel browser e aggiorna mappa, indicatori e cronologia.
+6. NiceGUI riproduce i frame nel browser e aggiorna pianta, indicatori e cronologia.
 
 NiceGUI non sostituisce SPADE: è soltanto il livello di presentazione. Le
 decisioni, i messaggi tra operatori e gli aggiornamenti visuali continuano a
@@ -36,15 +36,17 @@ NiceGUI nel browser
 
 ## Cosa mostra la dashboard
 
-- griglia 12×8 con Food Storage, Medical Storage, Cage Area e Treatment Room;
-- tutte le gabbie, le ciotole e gli animali con il relativo stato;
-- soltanto gli operatori che possiedono un accesso attivo sulla mappa;
+- pianta architettonica illustrata, senza mostrare le celle della griglia interna;
+- Food Storage, Medical Storage, Cage Area e Treatment Room con arredi distintivi;
+- gabbie con struttura, sbarre, targhetta, animale e stato della ciotola;
+- tutti gli operatori rappresentati come figure umane con uniforme del ruolo;
+- animazione fluida di corpo, braccia e gambe durante il cambio di stanza;
 - roster completo degli operatori, compresi quelli in attesa;
 - indicatori per animali sani, ciotole piene, cure e scorte;
 - cronologia ordinata di trigger SPADE, decisioni, azioni e attese;
 - occupanti e capacità di ogni area, sempre confrontabili con il limite `2`.
 
-Mappa e cronologia sono affiancate su schermi desktop e si dispongono in una
+Pianta e cronologia sono affiancate su schermi desktop e si dispongono in una
 sola colonna sulle finestre più strette.
 
 ## Avvio
@@ -85,4 +87,5 @@ worker ancora attivo.
 I renderer SVG e HTML sono testati come funzioni pure. Un test di scenario
 verifica che gli snapshot arrivino realmente dal Visualization Agent via SPADE.
 La prova manuale finale verifica nel browser anche il bridge, l'assenza di
-scorrimento orizzontale e la leggibilità contemporanea di mappa e cronologia.
+scorrimento orizzontale, le animazioni e la leggibilità contemporanea di pianta
+e cronologia.

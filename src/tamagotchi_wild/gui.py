@@ -11,7 +11,7 @@ from tamagotchi_wild.gui_bridge import SimulationBridge
 from tamagotchi_wild.messaging import VisualizationUpdate
 from tamagotchi_wild.visualization import (
     render_area_access,
-    render_grid_svg,
+    render_floorplan_svg,
     render_operator_roster,
     render_placeholder_svg,
     snapshot_metrics,
@@ -41,6 +41,7 @@ class RescueCenterDashboard:
         self.frame_index = 0
         self.finished = False
         self.timer = None
+        self.previous_snapshot = None
         self._build()
 
     def _build(self) -> None:
@@ -81,7 +82,7 @@ class RescueCenterDashboard:
                 "w-full grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
             ):
                 with ui.column().classes("lg:col-span-8 gap-5 min-w-0"):
-                    self._build_grid_card()
+                    self._build_floorplan_card()
                     self._build_staff_card()
                 with ui.column().classes("lg:col-span-4 gap-5 min-w-0"):
                     self._build_timeline_card()
@@ -176,29 +177,29 @@ class RescueCenterDashboard:
                 ).props("rounded")
             return value_label, progress
 
-    def _build_grid_card(self) -> None:
+    def _build_floorplan_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
                 with ui.column().classes("gap-0"):
-                    ui.label("Mappa operativa").classes(
+                    ui.label("Centro di recupero").classes(
                         "text-lg font-black text-slate-900"
                     )
                     ui.label(
-                        "Sulla griglia compaiono solo gli operatori con accesso attivo."
+                        "Pianta illustrata con stanze, gabbie e operatori in movimento."
                     ).classes("text-xs text-slate-500")
                 self.event_label = ui.label("Snapshot iniziale in arrivo").classes(
                     "text-xs font-bold text-green-700"
                 )
-            self.grid_html = ui.html(
+            self.floorplan_html = ui.html(
                 render_placeholder_svg(),
                 sanitize=False,
-            ).classes("grid-shell w-full").mark("cras-grid")
+            ).classes("floorplan-shell w-full").mark("cras-floorplan")
 
     def _build_staff_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             ui.label("Staff operativo").classes("text-lg font-black text-slate-900")
             ui.label(
-                "Bordo giallo: accesso alla stanza autorizzato. Gli altri attendono."
+                "Gli operatori in verde stanno lavorando; gli altri attendono nel corridoio."
             ).classes("text-xs text-slate-500")
             self.staff_html = ui.html(
                 '<div class="text-slate-400 text-sm">In attesa degli agenti…</div>',
@@ -263,7 +264,19 @@ class RescueCenterDashboard:
         self.status_badge.set_text("SPADE connesso")
         self.status_badge.props("color=positive")
         self.event_label.set_text(f"Evento SPADE #{update.sequence:03d}")
-        self.grid_html.set_content(render_grid_svg(update.snapshot))
+        frame_interval = (
+            self.timer.interval
+            if self.timer is not None
+            else self.step_delay_seconds
+        )
+        self.floorplan_html.set_content(
+            render_floorplan_svg(
+                update.snapshot,
+                previous_snapshot=self.previous_snapshot,
+                transition_seconds=frame_interval * 0.82,
+            )
+        )
+        self.previous_snapshot = update.snapshot
         self.staff_html.set_content(render_operator_roster(update.snapshot))
         self.access_html.set_content(render_area_access(update.snapshot))
         self.active_value.set_text(f"{metrics.active_operators} attivi")
