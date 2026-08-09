@@ -32,6 +32,9 @@ from tamagotchi_wild.environment.errors import (
 )
 
 
+TREATMENT_PATIENT_CAPACITY = 3
+
+
 @dataclass(frozen=True, slots=True)
 class EnvironmentEvent:
     sequence: int
@@ -66,6 +69,11 @@ class WorldSnapshot:
     agents: tuple[AgentState, ...]
     tasks: tuple[Task, ...]
     area_access: tuple[AreaAccessState, ...]
+    treatment_patients: tuple[str, ...]
+    treatment_patient_capacity: int
+    treatment_reserved_count: int
+    max_treatment_patients: int
+    max_carried_animals_per_agent: int
     event_count: int
 
 
@@ -101,6 +109,8 @@ class EnvironmentState:
         self._max_area_occupancy: dict[str, int] = {
             area_id: 0 for area_id in self._areas
         }
+        self._max_treatment_patients = 0
+        self._max_carried_animals_per_agent = 0
         self._validate_areas()
 
     @property
@@ -115,6 +125,7 @@ class EnvironmentState:
 
     def register_animal(self, animal: Animal) -> None:
         self._register(animal.id, animal.position, self._animals, animal)
+        self._update_patient_metrics()
 
     def register_bowl(self, bowl: Bowl) -> None:
         self._register(bowl.id, bowl.position, self._bowls, bowl)
@@ -172,6 +183,7 @@ class EnvironmentState:
         except EnvironmentError as exc:
             return ActionResult(accepted=False, reason=str(exc))
 
+        self._update_patient_metrics()
         self._events.append(event)
         result = ActionResult(
             accepted=True,
@@ -209,6 +221,13 @@ class EnvironmentState:
                 )
                 for area_id, area in sorted(self._areas.items())
             ),
+            treatment_patients=tuple(
+                animal.id for animal in self._treatment_patients()
+            ),
+            treatment_patient_capacity=TREATMENT_PATIENT_CAPACITY,
+            treatment_reserved_count=self._treatment_reserved_count(),
+            max_treatment_patients=self._max_treatment_patients,
+            max_carried_animals_per_agent=self._max_carried_animals_per_agent,
             event_count=len(self._events),
         )
 
@@ -494,6 +513,13 @@ class EnvironmentState:
             raise InvalidActionError(f"animal {animal.id} is not sick in its cage")
         self._require_area(animal.position, AreaType.CAGE_AREA, "animal")
         self._require_area(logistics.position, AreaType.CAGE_AREA, "logistics agent")
+        carried = self._carried_animals(logistics.id)
+        if carried:
+            raise InvalidActionError(
+                f"agent {logistics.id} already carries animal {carried[0].id}"
+            )
+        if self._treatment_reserved_count() >= TREATMENT_PATIENT_CAPACITY:
+            raise InvalidActionError("treatment room patient capacity is full")
 
         self._animals[animal.id] = replace(
             animal,
@@ -516,6 +542,8 @@ class EnvironmentState:
             raise InvalidActionError(f"animal {animal.id} is not in outbound transport")
         if animal.carried_by != command.actor_id:
             raise InvalidActionError(f"animal {animal.id} is not carried by {command.actor_id}")
+        if len(self._treatment_patients()) >= TREATMENT_PATIENT_CAPACITY:
+            raise InvalidActionError("treatment room patient capacity is full")
         destination = self._medical_destination(
             command.destination,
             AreaType.TREATMENT_ROOM,
@@ -584,6 +612,11 @@ class EnvironmentState:
             raise InvalidActionError(f"animal {animal.id} has not been treated")
         if logistics.position != animal.position:
             raise InvalidActionError("logistics agent and animal are not in the same cell")
+        carried = self._carried_animals(logistics.id)
+        if carried:
+            raise InvalidActionError(
+                f"agent {logistics.id} already carries animal {carried[0].id}"
+            )
 
         self._animals[animal.id] = replace(
             animal,
@@ -592,6 +625,58 @@ class EnvironmentState:
         )
         self._tasks[task.id] = replace(task, assigned_to=command.actor_id)
         return animal.position
+
+    def _carried_animals(self, agent_id: str) -> tuple[Animal, ...]:
+        return tuple(
+            sorted(
+                (
+                    animal
+                    for animal in self._animals.values()
+                    if animal.carried_by == agent_id
+                ),
+                key=lambda animal: animal.id,
+            )
+        )
+
+    def _treatment_patients(self) -> tuple[Animal, ...]:
+        return tuple(
+            sorted(
+                (
+                    animal
+                    for animal in self._animals.values()
+                    if animal.health in {
+                        HealthStatus.IN_TREATMENT,
+                        HealthStatus.TREATED,
+                    }
+                ),
+                key=lambda animal: animal.id,
+            )
+        )
+
+    def _treatment_reserved_count(self) -> int:
+        return sum(
+            animal.health
+            in {
+                HealthStatus.IN_OUTBOUND_TRANSPORT,
+                HealthStatus.IN_TREATMENT,
+                HealthStatus.TREATED,
+            }
+            for animal in self._animals.values()
+        )
+
+    def _update_patient_metrics(self) -> None:
+        self._max_treatment_patients = max(
+            self._max_treatment_patients,
+            len(self._treatment_patients()),
+        )
+        carried_by_agent = {
+            agent_id: len(self._carried_animals(agent_id))
+            for agent_id in self._agents
+        }
+        self._max_carried_animals_per_agent = max(
+            self._max_carried_animals_per_agent,
+            max(carried_by_agent.values(), default=0),
+        )
 
     def _return_animal_to_cage(self, command: ActionCommand) -> Position:
         task = self._medical_task(command.task_id)

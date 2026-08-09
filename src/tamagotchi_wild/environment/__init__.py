@@ -10,6 +10,7 @@ from tamagotchi_wild.environment.state import (
     AreaAccessState,
     EnvironmentEvent,
     EnvironmentState,
+    TREATMENT_PATIENT_CAPACITY,
     WorldSnapshot,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "EnvironmentState",
     "InvalidActionError",
     "UnknownEntityError",
+    "TREATMENT_PATIENT_CAPACITY",
     "WorldSnapshot",
 ]

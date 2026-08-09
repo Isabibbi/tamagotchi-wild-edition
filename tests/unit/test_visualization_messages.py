@@ -24,6 +24,14 @@ def test_visualization_update_round_trip_contains_complete_world() -> None:
     assert len(restored.snapshot["cages"]) == 2
     assert len(restored.snapshot["bowls"]) == 2
     assert len(restored.snapshot["tasks"]) == 4
+    assert restored.snapshot["treatment"] == {
+        "patients": [],
+        "patient_count": 0,
+        "patient_capacity": 3,
+        "reserved_count": 0,
+        "max_observed": 0,
+    }
+    assert restored.snapshot["max_carried_animals_per_agent"] == 0
 
 
 def test_rejected_area_access_becomes_a_readable_wait_event() -> None:

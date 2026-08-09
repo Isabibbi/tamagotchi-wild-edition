@@ -108,6 +108,9 @@ class SimulationResult:
     animal_conditions: tuple[str, ...]
     max_room_occupancy: int
     room_capacity: int
+    max_treatment_patients: int
+    treatment_patient_capacity: int
+    max_carried_animals_per_agent: int
     active_room_occupancy_at_end: int
     task_claims: tuple[str, ...]
     message_count: int
@@ -444,6 +447,9 @@ async def execute_simulation(
         and stock.quantity == food_quantity - config.animal_count
         and medicine_stock.quantity == medicine_quantity - config.animal_count
         and max_occupancy <= 2
+        and snapshot.max_treatment_patients
+        <= snapshot.treatment_patient_capacity
+        and snapshot.max_carried_animals_per_agent <= 1
         and active_occupancy == 0
     )
     if error is None and not success:
@@ -497,6 +503,11 @@ async def execute_simulation(
         ),
         max_room_occupancy=max_occupancy,
         room_capacity=2,
+        max_treatment_patients=snapshot.max_treatment_patients,
+        treatment_patient_capacity=snapshot.treatment_patient_capacity,
+        max_carried_animals_per_agent=(
+            snapshot.max_carried_animals_per_agent
+        ),
         active_room_occupancy_at_end=active_occupancy,
         task_claims=claims,
         message_count=len(message_trace.records),
@@ -553,6 +564,12 @@ def print_result(result: SimulationResult, as_json: bool = False) -> None:
         print(
             f"max-room-occupancy={result.max_room_occupancy}/"
             f"{result.room_capacity}"
+        )
+        print(
+            f"max-treatment-patients={result.max_treatment_patients}/"
+            f"{result.treatment_patient_capacity} "
+            f"max-carried-per-logistics="
+            f"{result.max_carried_animals_per_agent}/1"
         )
     else:
         print("SIMULATION FAILED")

@@ -75,6 +75,9 @@ def test_roster_metrics_and_capacity_remain_visible() -> None:
     assert roster.count("staff-person") == 3
     assert "feeding_01" in roster
     assert "0/2" in access
+    assert "Pazienti 0/3" in access
+    assert "MASSIMO 3 PAZIENTI" in floorplan
+    assert "P 0/3" in floorplan
     assert floorplan.count('class="animal-cage"') == 2
 
 

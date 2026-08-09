@@ -64,6 +64,9 @@ def describe_activity(line: str) -> str:
         "return_transport_requested": f"{agent} richiede il ritorno dell'animale in gabbia ({task})",
         "task_accepted": f"{agent} accetta il task di alimentazione {task}",
         "transport_accepted": f"{agent} accetta il trasporto {values.get('direction', '')} ({task})",
+        "waiting_for_treatment_slot": (
+            f"{agent} lascia il paziente in gabbia: i 3 posti della Treatment Room sono occupati ({task})"
+        ),
         "task_completed": f"{agent} completa il task di alimentazione {task}",
         "patient_ready": f"{agent} segnala che il paziente è pronto ({task})",
         "treatment_completed": f"{agent} completa il trattamento ({task})",

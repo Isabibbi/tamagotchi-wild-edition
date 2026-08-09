@@ -38,6 +38,13 @@ stessa esecuzione e avanzano in modo concorrente tramite messaggi SPADE/XMPP.
 - per entrare in un'area operativa occorre un permesso dell'Environment;
 - il terzo agente attende e riprova finché uno dei due posti viene rilasciato;
 - il limite di 2 vale per Food Storage, Medical Storage, Cage Area e Treatment Room.
+- ogni Logistics può trasportare un solo animale alla volta;
+- la Treatment Room può contenere al massimo 3 pazienti;
+- il posto viene prenotato prima di prelevare l'animale: se i 3 posti sono
+  occupati, il paziente resta al sicuro nella propria gabbia;
+- quando un paziente arriva, il messaggio `patient_ready` attiva subito il
+  Veterinary assegnato; i trasporti di rientro hanno priorità sulle nuove
+  partenze dalle gabbie.
 
 ## Avvio
 
@@ -55,6 +62,7 @@ operators=7 veterinary=2 logistics=3 feeding=2
 animals=1 cages=1 bowls=1
 feeding=1/1 medical=1/1 healthy=1/1
 max-room-occupancy=1/2
+max-treatment-patients=1/3 max-carried-per-logistics=1/1
 ```
 
 Il massimo osservato può essere `1` oppure `2`, in base all'ordine effettivo dei
@@ -138,8 +146,10 @@ Opzioni aggiuntive:
 ```
 
 I test verificano la configurazione fino a 7 operatori e 40 animali,
-l'assegnazione univoca dei task, il limite di 2 accessi e un'esecuzione
-end-to-end con 5 animali e 10 task. I test dedicati avviano anche il
+l'assegnazione univoca dei task, il limite di 2 operatori per area, un solo
+animale trasportato per Logistics e al massimo 3 pazienti nella Treatment
+Room. Il test end-to-end usa 10 animali e 20 task contemporanei. I test
+dedicati avviano anche il
 Visualization Agent, verificano lo stream SPADE e i renderer usati da NiceGUI.
 Il server XMPP integrato viene avviato e arrestato automaticamente; non servono
 Internet né credenziali esterne.

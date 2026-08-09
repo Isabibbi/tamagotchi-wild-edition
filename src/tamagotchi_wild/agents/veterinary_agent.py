@@ -247,22 +247,23 @@ class VeterinaryAgent(ProjectBDIAgent):
                     None,
                 ),
             )
-            for area_id, access_position, action, target_id, quantity in operations:
-                result = await self._perform_in_area(
-                    area_id,
-                    access_position,
-                    action,
-                    target_id,
-                    quantity,
-                )
-                if not result.accepted:
-                    self.agent.reject_task(
-                        self.task_id,
-                        self.animal_id,
-                        result.reason,
+            async with self.agent.treatment_lock:
+                for area_id, access_position, action, target_id, quantity in operations:
+                    result = await self._perform_in_area(
+                        area_id,
+                        access_position,
+                        action,
+                        target_id,
+                        quantity,
                     )
-                    self.kill()
-                    return
+                    if not result.accepted:
+                        self.agent.reject_task(
+                            self.task_id,
+                            self.animal_id,
+                            result.reason,
+                        )
+                        self.kill()
+                        return
 
             self.agent.activity_log.record(
                 self.task_id,
@@ -372,6 +373,7 @@ class VeterinaryAgent(ProjectBDIAgent):
         self.workflow_task_id: str | None = None
         self.workflow_done = asyncio.Event()
         self.workflow_outcomes: dict[str, str] = {}
+        self.treatment_lock = asyncio.Lock()
         super().__init__(jid, password, str(asl_file))
 
     async def setup(self) -> None:

@@ -202,6 +202,16 @@ def _snapshot_payload(snapshot: WorldSnapshot) -> dict[str, Any]:
             }
             for access in snapshot.area_access
         ],
+        "treatment": {
+            "patients": list(snapshot.treatment_patients),
+            "patient_count": len(snapshot.treatment_patients),
+            "patient_capacity": snapshot.treatment_patient_capacity,
+            "reserved_count": snapshot.treatment_reserved_count,
+            "max_observed": snapshot.max_treatment_patients,
+        },
+        "max_carried_animals_per_agent": (
+            snapshot.max_carried_animals_per_agent
+        ),
         "food": [
             {"id": stock.id, "quantity": stock.quantity}
             for stock in snapshot.food_stocks

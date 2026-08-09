@@ -380,7 +380,7 @@ def _render_treatment_room() -> str:
         "treatment-room",
         "url(#treatmentFloor)",
         "SALA TRATTAMENTI",
-        "VISITE, TERAPIE E STABILIZZAZIONE",
+        "MASSIMO 3 PAZIENTI · CURA PRIORITARIA",
         "&#x1FA7A;",
     ) + """
     <g aria-label="Lettino e attrezzatura della sala trattamenti">
@@ -401,6 +401,7 @@ def _render_treatment_room() -> str:
 
 def _render_room_occupancy(snapshot: dict) -> str:
     chunks = []
+    treatment = snapshot.get("treatment", {})
     for access in snapshot["area_access"]:
         room = ROOM_RECTS.get(access["area_id"])
         if room is None:
@@ -415,6 +416,21 @@ def _render_room_occupancy(snapshot: dict) -> str:
             f'<text x="28" y="17" class="tiny-label">{count}/{access["capacity"]}</text>'
             '</g>'
         )
+        if access["area_id"] == "treatment-room":
+            patient_count = treatment.get("patient_count", 0)
+            patient_capacity = treatment.get("patient_capacity", 3)
+            patient_tone = (
+                "#dc2626"
+                if patient_count == patient_capacity
+                else "#0f766e"
+            )
+            chunks.append(
+                f'<g transform="translate({x + width - 166} {y + 23})">'
+                '<rect width="76" height="25" rx="12" fill="#ffffff" opacity=".92"/>'
+                f'<circle cx="15" cy="12.5" r="6" fill="{patient_tone}"/>'
+                f'<text x="27" y="17" class="tiny-label">P {patient_count}/{patient_capacity}</text>'
+                '</g>'
+            )
     return "".join(chunks)
 
 
@@ -677,10 +693,17 @@ def render_area_access(snapshot: dict) -> str:
         capacity = access["capacity"]
         tone = "room-full" if current == capacity else "room-free"
         occupants = ", ".join(access["occupants"]) or "Nessun operatore"
+        detail = occupants
+        if access["area_id"] == "treatment-room":
+            treatment = snapshot.get("treatment", {})
+            detail = (
+                f'Pazienti {treatment.get("patient_count", 0)}/'
+                f'{treatment.get("patient_capacity", 3)} · {occupants}'
+            )
         cards.append(
             f'<div class="room-access {tone}">'
             f'<span><strong>{escape(labels.get(access["area_id"], access["area_id"]))}</strong>'
-            f'<small>{escape(occupants)}</small></span>'
+            f'<small>{escape(detail)}</small></span>'
             f'<b>{current}/{capacity}</b></div>'
         )
     return '<div class="room-access-grid">' + "".join(cards) + "</div>"

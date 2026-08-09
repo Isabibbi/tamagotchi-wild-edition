@@ -291,32 +291,61 @@ class LogisticsAgent(ProjectBDIAgent):
                 direction=self.direction,
             )
 
+            if self.direction == RETURN:
+                self.agent.pending_return_tasks.add(self.task_id)
+            try:
+                actions, final_status = self._transport_plan()
+                result = await self._execute_with_priority(actions)
+                if not result.accepted:
+                    await self._send_status(
+                        requester,
+                        "failure",
+                        "failed",
+                        result.reason,
+                    )
+                    self.agent.transport_failures[self.task_id] = result.reason
+                    return
+
+                await self._send_status(requester, "inform", final_status)
+                self.agent.transport_outcomes[
+                    (self.task_id, self.direction)
+                ] = final_status
+                self.agent.activity_log.record(
+                    self.task_id,
+                    self.agent.agent_label,
+                    final_status,
+                    animal=self.animal_id,
+                )
+            finally:
+                if self.direction == RETURN:
+                    self.agent.pending_return_tasks.discard(self.task_id)
+                self.kill()
+
+        def _transport_plan(self):
+            cage_position = self.agent.cage_positions.get(
+                self.cage_id,
+                self.agent.cage_position,
+            )
             if self.direction == OUTBOUND:
-                cage_position = self.agent.cage_positions.get(
-                    self.cage_id,
-                    self.agent.cage_position,
-                )
-                actions = (
+                return (
                     (
-                        self.agent.cage_area_id,
-                        cage_position,
-                        ActionType.PICKUP_SICK_ANIMAL,
-                        None,
+                        (
+                            self.agent.cage_area_id,
+                            cage_position,
+                            ActionType.PICKUP_SICK_ANIMAL,
+                            None,
+                        ),
+                        (
+                            self.agent.treatment_area_id,
+                            self.agent.treatment_position,
+                            ActionType.DELIVER_TO_TREATMENT,
+                            self.agent.treatment_position,
+                        ),
                     ),
-                    (
-                        self.agent.treatment_area_id,
-                        self.agent.treatment_position,
-                        ActionType.DELIVER_TO_TREATMENT,
-                        self.agent.treatment_position,
-                    ),
+                    "patient_ready",
                 )
-                final_status = "patient_ready"
-            else:
-                cage_position = self.agent.cage_positions.get(
-                    self.cage_id,
-                    self.agent.cage_position,
-                )
-                actions = (
+            return (
+                (
                     (
                         self.agent.treatment_area_id,
                         self.agent.treatment_position,
@@ -329,9 +358,59 @@ class LogisticsAgent(ProjectBDIAgent):
                         ActionType.RETURN_ANIMAL_TO_CAGE,
                         cage_position,
                     ),
-                )
-                final_status = "returned"
+                ),
+                "returned",
+            )
 
+        async def _execute_with_priority(self, actions) -> ActionResponse:
+            deadline = (
+                asyncio.get_running_loop().time()
+                + self.agent.timeout_seconds
+            )
+            waiting_logged = False
+            while True:
+                if self.direction == OUTBOUND and self.agent.pending_return_tasks:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        return ActionResponse(
+                            self.task_id,
+                            False,
+                            "timeout waiting behind return transports",
+                            None,
+                        )
+                    await asyncio.sleep(0.05)
+                    continue
+
+                async with self.agent.transport_lock:
+                    if (
+                        self.direction == OUTBOUND
+                        and self.agent.pending_return_tasks
+                    ):
+                        continue
+                    result = await self._perform_actions(actions)
+
+                if result.accepted:
+                    return result
+                if result.reason != "treatment room patient capacity is full":
+                    return result
+                if not waiting_logged:
+                    self.agent.activity_log.record(
+                        self.task_id,
+                        self.agent.agent_label,
+                        "waiting_for_treatment_slot",
+                        animal=self.animal_id,
+                    )
+                    waiting_logged = True
+                if asyncio.get_running_loop().time() >= deadline:
+                    return ActionResponse(
+                        self.task_id,
+                        False,
+                        "timeout waiting for a treatment patient slot",
+                        None,
+                    )
+                await asyncio.sleep(0.05)
+
+        async def _perform_actions(self, actions) -> ActionResponse:
+            result = ActionResponse(self.task_id, True, "accepted", None)
             for area_id, access_position, action, destination in actions:
                 result = await self._perform_in_area(
                     area_id,
@@ -340,27 +419,8 @@ class LogisticsAgent(ProjectBDIAgent):
                     destination,
                 )
                 if not result.accepted:
-                    await self._send_status(
-                        requester,
-                        "failure",
-                        "failed",
-                        result.reason,
-                    )
-                    self.agent.transport_failures[self.task_id] = result.reason
-                    self.kill()
-                    return
-
-            await self._send_status(requester, "inform", final_status)
-            self.agent.transport_outcomes[
-                (self.task_id, self.direction)
-            ] = final_status
-            self.agent.activity_log.record(
-                self.task_id,
-                self.agent.agent_label,
-                final_status,
-                animal=self.animal_id,
-            )
-            self.kill()
+                    return result
+            return result
 
         async def _perform_in_area(
             self,
@@ -461,6 +521,8 @@ class LogisticsAgent(ProjectBDIAgent):
         self.transport_requesters: dict[tuple[str, str], str] = {}
         self.transport_outcomes: dict[tuple[str, str], str] = {}
         self.transport_failures: dict[str, str] = {}
+        self.transport_lock = asyncio.Lock()
+        self.pending_return_tasks: set[str] = set()
         super().__init__(jid, password, str(asl_file))
 
     async def setup(self) -> None:
