@@ -104,6 +104,8 @@ def test_timeline_wraps_long_events_instead_of_cutting_them() -> None:
     assert "white-space: normal" in NICEGUI_CSS
     assert "overflow-wrap: anywhere" in NICEGUI_CSS
     assert "overflow-x: hidden" in NICEGUI_CSS
+    assert ".event-log .timeline-warning" in NICEGUI_CSS
+    assert "border-left: 5px solid #fbbf24" in NICEGUI_CSS
 
 
 def test_cli_exposes_nicegui_port_and_browser_control() -> None:

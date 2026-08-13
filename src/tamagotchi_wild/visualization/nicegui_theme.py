@@ -150,6 +150,16 @@ body {
   overflow-wrap: anywhere;
   word-break: normal;
 }
+.event-log .timeline-warning {
+  margin: .32rem 0;
+  padding: .62rem .7rem;
+  border: 1px solid rgba(251, 191, 36, .48);
+  border-left: 5px solid #fbbf24;
+  border-radius: .55rem;
+  background: rgba(245, 158, 11, .13);
+  color: #fde68a !important;
+  font-weight: 700;
+}
 @media (max-width: 900px) {
   .nicegui-content { padding: .75rem; }
   .room-access-grid { grid-template-columns: 1fr; }

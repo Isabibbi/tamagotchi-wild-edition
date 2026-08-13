@@ -78,13 +78,21 @@ class EnvironmentAgent(Agent):
                 conversation_id or response_data.task_id,
             )
             if request is not None and response_data.accepted:
+                self.agent._clear_visualization_rejection(request)
                 self.agent._record_action(request)
                 if response_data.event_sequence is not None:
                     await self.agent._send_visualization_update(
                         self,
                         response_data.event_sequence,
                     )
-            elif request is not None and self.agent.visualization_jid is not None:
+            elif (
+                request is not None
+                and self.agent.visualization_jid is not None
+                and self.agent._should_publish_visualization_rejection(
+                    request,
+                    response_data.reason,
+                )
+            ):
                 await self.agent._send_visualization_rejection(
                     self,
                     request,
@@ -178,7 +186,44 @@ class EnvironmentAgent(Agent):
         self.message_trace = message_trace or MessageTrace()
         self.agent_label = jid.split("@", 1)[0]
         self.visualization_jid = visualization_jid
+        self._active_visualization_rejections: set[
+            tuple[str, str, ActionType, str, str]
+        ] = set()
         super().__init__(jid, password)
+
+    def _should_publish_visualization_rejection(
+        self,
+        request: ActionRequest,
+        reason: str,
+    ) -> bool:
+        """Publish only the first retry of the same temporary blocking episode."""
+
+        rejection = (
+            request.task_id,
+            request.actor_id,
+            request.requested_action,
+            request.target_id,
+            reason,
+        )
+        if rejection in self._active_visualization_rejections:
+            return False
+        self._active_visualization_rejections.add(rejection)
+        return True
+
+    def _clear_visualization_rejection(self, request: ActionRequest) -> None:
+        """Allow a future warning after this exact action eventually succeeds."""
+
+        identity = (
+            request.task_id,
+            request.actor_id,
+            request.requested_action,
+            request.target_id,
+        )
+        self._active_visualization_rejections = {
+            rejection
+            for rejection in self._active_visualization_rejections
+            if rejection[:4] != identity
+        }
 
     async def setup(self) -> None:
         template = Template()

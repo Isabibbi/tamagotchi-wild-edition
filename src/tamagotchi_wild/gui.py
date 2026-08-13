@@ -213,9 +213,9 @@ class RescueCenterDashboard:
                     ui.label("Cronologia live").classes(
                         "text-lg font-black text-slate-900"
                     )
-                    ui.label("Cosa succede, passo dopo passo").classes(
-                        "text-xs text-slate-500"
-                    )
+                    ui.label(
+                        "Azioni completate e tentativi bloccati, passo dopo passo"
+                    ).classes("text-xs text-slate-500")
                 ui.icon("sensors", color="green-600")
             self.timeline = ui.log(max_lines=600).classes(
                 "event-log w-full p-3"
@@ -266,7 +266,12 @@ class RescueCenterDashboard:
         metrics = snapshot_metrics(update.snapshot)
         self.status_badge.set_text("SPADE connesso")
         self.status_badge.props("color=positive")
-        self.event_label.set_text(f"Evento SPADE #{update.sequence:03d}")
+        rejected = update.event.get("action") == "action_rejected"
+        self.event_label.set_text(
+            f"Tentativo bloccato #{update.sequence:03d}"
+            if rejected
+            else f"Evento SPADE #{update.sequence:03d}"
+        )
         frame_interval = (
             self.timer.interval
             if self.timer is not None
@@ -306,10 +311,12 @@ class RescueCenterDashboard:
             update,
             self.seen_activity_count,
         )
-        for entry in entries:
+        for index, entry in enumerate(entries):
             css_class = "timeline-entry"
             if entry.lstrip().startswith("↳"):
                 css_class += " text-slate-400"
+            if rejected and index == len(entries) - 1:
+                css_class += " timeline-warning"
             self.timeline.push(entry, classes=css_class)
 
     def _finish(self, result) -> None:

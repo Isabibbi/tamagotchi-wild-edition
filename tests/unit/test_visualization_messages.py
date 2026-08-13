@@ -1,3 +1,4 @@
+from tamagotchi_wild.agents.environment_agent import EnvironmentAgent
 from tamagotchi_wild.config import SimulationConfig
 from tamagotchi_wild.domain import ActionType
 from tamagotchi_wild.messaging import ActionRequest, VisualizationUpdate
@@ -57,7 +58,86 @@ def test_rejected_area_access_becomes_a_readable_wait_event() -> None:
     assert seen == 0
     assert update.event["requested_action"] == "acquire_area"
     assert any("La sala cure è al completo" in entry for entry in entries)
-    assert any("Operatore logistico 3 aspetta fuori" in entry for entry in entries)
+    assert any(
+        "Operatore logistico 3 prova a entrare, ma deve aspettare" in entry
+        for entry in entries
+    )
+
+
+def test_rejected_cage_access_explains_the_attempt_and_the_reason() -> None:
+    entry = describe_environment_event(
+        {
+            "sequence": 12,
+            "action": "action_rejected",
+            "requested_action": "acquire_area",
+            "actor_id": "logistics_02",
+            "target_id": "cage-area",
+            "task_id": "medical_004",
+            "detail": "area cage-area is at capacity",
+        }
+    )
+
+    assert entry == (
+        "#012 · L'area gabbie è al completo. Operatore logistico 2 "
+        "prova a entrare, ma deve aspettare."
+    )
+
+
+def test_other_temporary_blocks_are_explained_clearly() -> None:
+    room_full = describe_environment_event(
+        {
+            "sequence": 20,
+            "action": "action_rejected",
+            "requested_action": "pickup_sick_animal",
+            "actor_id": "logistics_01",
+            "target_id": "animal_004",
+            "task_id": "medical_004",
+            "detail": "treatment room patient capacity is full",
+        }
+    )
+    already_carrying = describe_environment_event(
+        {
+            "sequence": 21,
+            "action": "action_rejected",
+            "requested_action": "pickup_sick_animal",
+            "actor_id": "logistics_01",
+            "target_id": "animal_005",
+            "task_id": "medical_005",
+            "detail": "agent logistics_01 already carries animal animal_001",
+        }
+    )
+
+    assert "prova a prendere l'animale 4" in room_full
+    assert "i 3 posti della sala cure sono occupati" in room_full
+    assert "prova a prendere l'animale 5" in already_carrying
+    assert "sta già trasportando un altro animale" in already_carrying
+
+
+def test_identical_retries_produce_one_warning_until_the_action_succeeds() -> None:
+    agent = object.__new__(EnvironmentAgent)
+    agent._active_visualization_rejections = set()
+    request = ActionRequest(
+        task_id="medical_004",
+        actor_id="logistics_02",
+        target_id="cage-area",
+        requested_action=ActionType.ACQUIRE_AREA,
+    )
+
+    assert agent._should_publish_visualization_rejection(
+        request,
+        "area cage-area is at capacity",
+    )
+    assert not agent._should_publish_visualization_rejection(
+        request,
+        "area cage-area is at capacity",
+    )
+
+    agent._clear_visualization_rejection(request)
+
+    assert agent._should_publish_visualization_rejection(
+        request,
+        "area cage-area is at capacity",
+    )
 
 
 def test_environment_events_use_simple_italian_names() -> None:

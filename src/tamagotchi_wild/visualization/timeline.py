@@ -157,10 +157,52 @@ def _rejection_description(
     detail: str,
 ) -> str:
     if requested_action == "acquire_area" and "capacity" in detail:
-        return f"{_area_subject(target_id)} è al completo: {actor} aspetta fuori."
+        return (
+            f"{_area_subject(target_id)} è al completo. "
+            f"{actor} prova a entrare, ma deve aspettare."
+        )
+    if requested_action == "acquire_area" and "busy with task" in detail:
+        return (
+            f"{actor} prova a entrare {_area_destination(target_id)}, "
+            "ma sta ancora svolgendo un'altra attività."
+        )
     if "treatment room patient capacity" in detail:
-        return f"La sala cure è piena: {_task_subject(task)} resta nella gabbia."
-    return f"{actor} deve aspettare prima di continuare con {_task_subject(task)}."
+        return (
+            f"{actor} prova a prendere {_task_subject(task)}, ma i 3 posti "
+            "della sala cure sono occupati. L'animale resta nella gabbia."
+        )
+    if "already carries animal" in detail:
+        return (
+            f"{actor} prova a prendere {_target_name(target_id)}, ma sta già "
+            "trasportando un altro animale."
+        )
+    if "not enough food" in detail:
+        return f"{actor} prova a prendere il cibo, ma le scorte sono finite."
+    if "not enough medicine" in detail:
+        return (
+            f"{actor} prova a prendere il medicinale, ma le scorte sono finite."
+        )
+    if "task phase already claimed by" in detail:
+        owner_id = detail.rsplit(" ", 1)[-1]
+        return (
+            f"{actor} prova a occuparsi {_task_subject_with_of(task)}, ma il lavoro "
+            f"è già stato assegnato a {_agent_name(owner_id)}."
+        )
+    attempts = {
+        "claim_task": "prendere in carico il lavoro",
+        "take_food": "prendere il cibo",
+        "fill_bowl": f"riempire {_target_name(target_id)}",
+        "pickup_sick_animal": f"prendere {_target_name(target_id)}",
+        "deliver_to_treatment": (
+            f"portare {_target_name(target_id)} nella sala cure"
+        ),
+        "take_medicine": "prendere il medicinale",
+        "treat_animal": f"curare {_target_name(target_id)}",
+        "pickup_treated_animal": f"riprendere {_target_name(target_id)}",
+        "return_animal_to_cage": f"riportare {_target_name(target_id)} in gabbia",
+    }
+    attempt = attempts.get(requested_action, "continuare il lavoro")
+    return f"{actor} prova a {attempt}, ma in questo momento non può farlo."
 
 
 def _agent_name(identifier: str) -> str:

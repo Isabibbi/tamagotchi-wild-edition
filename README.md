@@ -87,6 +87,9 @@ Il browser si apre su una dashboard NiceGUI locale e mostra:
 - nella cronologia, percezioni, richieste, movimenti, azioni e attese, con le
   righe lunghe disposte su più linee anziché tagliate e nomi tecnici tradotti
   in frasi semplici;
+- i tentativi temporaneamente impossibili sono evidenziati in giallo e spiegano
+  chi ha provato a fare cosa e perché deve aspettare; i retry identici vengono
+  raggruppati in un solo avviso finché l'azione non riesce;
 - nell'Area gabbie, ciotole disegnate e una legenda: verde significa piena,
   rosso significa vuota;
 - alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
