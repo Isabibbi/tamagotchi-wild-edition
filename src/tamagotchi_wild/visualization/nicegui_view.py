@@ -363,14 +363,19 @@ def _render_cage_room() -> str:
         "url(#cageFloor)",
         "AREA GABBIE",
         "RICOVERO E OSSERVAZIONE DEGLI ANIMALI",
-        "&#x1F43E;",
+        "&#x25A6;",
     ) + """
+    <g class="cage-bowl-legend" transform="translate(452 340)"
+       aria-label="Legenda ciotole: verde piena, rossa vuota">
+      <rect width="126" height="25" rx="12" fill="#ffffff" opacity=".9"/>
+      <circle cx="13" cy="12.5" r="5" fill="#22c55e"/>
+      <text x="22" y="16" class="tiny-label">PIENA</text>
+      <circle cx="70" cy="12.5" r="5" fill="#ef4444"/>
+      <text x="79" y="16" class="tiny-label">VUOTA</text>
+    </g>
     <g opacity=".8">
       <rect x="49" y="381" width="607" height="287" rx="14" fill="#f6f2e7"/>
       <path d="M62 650q75-42 150 0t150 0t150 0t130 0v18H62z" fill="#9eb48d" opacity=".45"/>
-      <g fill="#7f9b71">
-        <circle cx="71" cy="359" r="13"/><circle cx="92" cy="365" r="18"/><circle cx="116" cy="359" r="12"/>
-      </g>
     </g>
     """
 
@@ -488,6 +493,15 @@ def _render_cage(
     bowl_full = bowl is not None and bowl["level"] == bowl["capacity"]
     bowl_color = "#22c55e" if bowl_full else "#ef4444"
     bowl_state = "piena" if bowl_full else "vuota"
+    bowl_x = x + width - 22
+    bowl_y = y + height - 12
+    food_marks = (
+        f'<circle cx="{bowl_x - 5:.1f}" cy="{bowl_y - 4:.1f}" r="2" fill="#fef3c7"/>'
+        f'<circle cx="{bowl_x + 1:.1f}" cy="{bowl_y - 5:.1f}" r="2" fill="#fef3c7"/>'
+        f'<circle cx="{bowl_x + 6:.1f}" cy="{bowl_y - 3:.1f}" r="2" fill="#fef3c7"/>'
+        if bowl_full
+        else ""
+    )
     return (
         f'<g class="animal-cage" data-cage-id="{cage_id}">'
         f'<title>{cage_id} · ciotola {bowl_state}</title>'
@@ -498,7 +512,17 @@ def _render_cage(
         f'<rect x="{x + 8:.1f}" y="{y - 11:.1f}" width="{min(width - 16, 88):.1f}" height="22" rx="7" fill="#35434b"/>'
         f'<text x="{x + 15:.1f}" y="{y + 4:.1f}" font-family="Inter,Segoe UI,sans-serif" font-size="9" font-weight="800" fill="#ffffff">{cage_id}</text>'
         f'<rect x="{x + width - 21:.1f}" y="{y + height * .38:.1f}" width="12" height="22" rx="3" fill="#d6a43d" stroke="#6b4f17" stroke-width="2"/>'
-        f'<ellipse cx="{x + width - 22:.1f}" cy="{y + height - 10:.1f}" rx="13" ry="7" fill="{bowl_color}" stroke="#ffffff" stroke-width="3"/>'
+        f'<g class="cage-bowl" data-state="{bowl_state}" '
+        f'aria-label="Ciotola {bowl_state}">'
+        f'<title>Ciotola {bowl_state}</title>'
+        f'<path d="M{bowl_x - 14:.1f} {bowl_y - 2:.1f} '
+        f'Q{bowl_x:.1f} {bowl_y + 5:.1f} {bowl_x + 14:.1f} {bowl_y - 2:.1f} '
+        f'L{bowl_x + 10:.1f} {bowl_y + 9:.1f} '
+        f'Q{bowl_x:.1f} {bowl_y + 14:.1f} {bowl_x - 10:.1f} {bowl_y + 9:.1f}Z" '
+        'fill="#d6a43d" stroke="#6b4f17" stroke-width="2"/>'
+        f'<ellipse class="bowl-content" cx="{bowl_x:.1f}" cy="{bowl_y - 2:.1f}" '
+        f'rx="13" ry="6" fill="{bowl_color}" stroke="#ffffff" stroke-width="2"/>'
+        f'{food_marks}</g>'
         '</g>'
     )
 

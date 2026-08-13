@@ -8,6 +8,7 @@ from tamagotchi_wild.visualization import (
     render_operator_roster,
     snapshot_metrics,
 )
+from tamagotchi_wild.visualization.nicegui_theme import NICEGUI_CSS
 
 
 def test_floorplan_shows_rooms_cages_and_all_humanoid_operators() -> None:
@@ -79,6 +80,30 @@ def test_roster_metrics_and_capacity_remain_visible() -> None:
     assert "MASSIMO 3 PAZIENTI" in floorplan
     assert "P 0/3" in floorplan
     assert floorplan.count('class="animal-cage"') == 2
+    assert floorplan.count('class="cage-bowl"') == 2
+    assert floorplan.count('data-state="vuota"') == 2
+    assert "Legenda ciotole: verde piena, rossa vuota" in floorplan
+    assert "&#x25A6;" in floorplan
+    assert '<circle cx="71" cy="359" r="13"/>' not in floorplan
+
+
+def test_full_bowl_is_drawn_as_a_labelled_bowl_with_food() -> None:
+    world = build_environment(SimulationConfig(), food=1, medicine=1)
+    payload = _payload(world)
+    payload["bowls"][0]["level"] = payload["bowls"][0]["capacity"]
+
+    svg = render_floorplan_svg(payload)
+
+    assert 'class="cage-bowl" data-state="piena"' in svg
+    assert 'aria-label="Ciotola piena"' in svg
+    assert 'class="bowl-content"' in svg
+
+
+def test_timeline_wraps_long_events_instead_of_cutting_them() -> None:
+    assert ".event-log .timeline-entry" in NICEGUI_CSS
+    assert "white-space: normal" in NICEGUI_CSS
+    assert "overflow-wrap: anywhere" in NICEGUI_CSS
+    assert "overflow-x: hidden" in NICEGUI_CSS
 
 
 def test_cli_exposes_nicegui_port_and_browser_control() -> None:

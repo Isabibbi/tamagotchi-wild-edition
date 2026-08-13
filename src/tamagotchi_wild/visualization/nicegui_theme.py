@@ -131,11 +131,28 @@ body {
   border-radius: 1rem;
   color: #dbeafe;
   font-family: "Cascadia Code", Consolas, monospace;
-  font-size: .76rem;
-  line-height: 1.55;
+  font-size: .8rem;
+  line-height: 1.5;
+  height: min(72vh, 760px);
+  min-height: 540px;
+  overflow-x: hidden;
+}
+.event-log .q-scrollarea__content {
+  width: 100%;
+  min-width: 0;
+}
+.event-log .timeline-entry {
+  display: block;
+  width: 100%;
+  padding: .38rem .3rem;
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 @media (max-width: 900px) {
   .nicegui-content { padding: .75rem; }
   .room-access-grid { grid-template-columns: 1fr; }
+  .event-log { height: 60vh; min-height: 420px; }
 }
 """

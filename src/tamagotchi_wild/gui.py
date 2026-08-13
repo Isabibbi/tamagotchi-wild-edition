@@ -81,10 +81,10 @@ class RescueCenterDashboard:
             with ui.element("div").classes(
                 "w-full grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
             ):
-                with ui.column().classes("lg:col-span-8 gap-5 min-w-0"):
+                with ui.column().classes("lg:col-span-7 gap-5 min-w-0"):
                     self._build_floorplan_card()
                     self._build_staff_card()
-                with ui.column().classes("lg:col-span-4 gap-5 min-w-0"):
+                with ui.column().classes("lg:col-span-5 gap-5 min-w-0"):
                     self._build_timeline_card()
                     self._build_access_card()
 
@@ -207,7 +207,7 @@ class RescueCenterDashboard:
             ).classes("w-full").mark("staff-roster")
 
     def _build_timeline_card(self) -> None:
-        with ui.card().classes("cras-card w-full p-5 gap-4"):
+        with ui.card().classes("cras-card timeline-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
                 with ui.column().classes("gap-0"):
                     ui.label("Cronologia live").classes(
@@ -218,9 +218,12 @@ class RescueCenterDashboard:
                     )
                 ui.icon("sensors", color="green-600")
             self.timeline = ui.log(max_lines=600).classes(
-                "event-log w-full h-[650px] p-3"
+                "event-log w-full p-3"
             ).mark("event-timeline")
-            self.timeline.push("Connessione al Visualization Agent SPADE…")
+            self.timeline.push(
+                "Connessione al Visualization Agent SPADE…",
+                classes="timeline-entry",
+            )
 
     def _build_access_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
@@ -304,7 +307,9 @@ class RescueCenterDashboard:
             self.seen_activity_count,
         )
         for entry in entries:
-            css_class = "text-slate-400" if entry.lstrip().startswith("↳") else ""
+            css_class = "timeline-entry"
+            if entry.lstrip().startswith("↳"):
+                css_class += " text-slate-400"
             self.timeline.push(entry, classes=css_class)
 
     def _finish(self, result) -> None:
@@ -312,7 +317,10 @@ class RescueCenterDashboard:
         if isinstance(result, Exception):
             self.status_badge.set_text("Simulazione interrotta")
             self.status_badge.props("color=negative")
-            self.timeline.push(f"ERRORE · {result}", classes="text-red-300")
+            self.timeline.push(
+                f"ERRORE · {result}",
+                classes="timeline-entry text-red-300",
+            )
             return
         outcome = "Completata" if result.success else "Fallita"
         self.status_badge.set_text(f"Simulazione {outcome.lower()}")
@@ -321,7 +329,11 @@ class RescueCenterDashboard:
             f"FINE · Feeding {result.completed_feeding_tasks}/"
             f"{result.feeding_task_count} · Medical "
             f"{result.completed_medical_tasks}/{result.medical_task_count}",
-            classes="text-green-300" if result.success else "text-red-300",
+            classes=(
+                "timeline-entry text-green-300"
+                if result.success
+                else "timeline-entry text-red-300"
+            ),
         )
 
     def _toggle_playback(self) -> None:

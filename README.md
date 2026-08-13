@@ -84,7 +84,10 @@ Il browser si apre su una dashboard NiceGUI locale e mostra:
 - quattro stanze arredate, gabbie con sbarre, animali e ciotole riconoscibili;
 - tutti gli operatori come figure umane, animate mentre entrano o escono dalle stanze;
 - a destra, risorse, task completati e occupazione corrente delle aree;
-- nella cronologia, percezioni, richieste, movimenti, azioni e attese;
+- nella cronologia, percezioni, richieste, movimenti, azioni e attese, con le
+  righe lunghe disposte su più linee anziché tagliate;
+- nell'Area gabbie, ciotole disegnate e una legenda: verde significa piena,
+  rosso significa vuota;
 - alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
 
 Gli aggiornamenti non accedono direttamente allo stato della simulazione:
