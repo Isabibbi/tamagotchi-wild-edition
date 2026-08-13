@@ -213,7 +213,7 @@ class RescueCenterDashboard:
                     ui.label("Cronologia live").classes(
                         "text-lg font-black text-slate-900"
                     )
-                    ui.label("Trigger, decisioni e azioni in ordine temporale").classes(
+                    ui.label("Cosa succede, passo dopo passo").classes(
                         "text-xs text-slate-500"
                     )
                 ui.icon("sensors", color="green-600")

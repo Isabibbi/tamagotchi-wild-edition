@@ -85,7 +85,8 @@ Il browser si apre su una dashboard NiceGUI locale e mostra:
 - tutti gli operatori come figure umane, animate mentre entrano o escono dalle stanze;
 - a destra, risorse, task completati e occupazione corrente delle aree;
 - nella cronologia, percezioni, richieste, movimenti, azioni e attese, con le
-  righe lunghe disposte su più linee anziché tagliate;
+  righe lunghe disposte su più linee anziché tagliate e nomi tecnici tradotti
+  in frasi semplici;
 - nell'Area gabbie, ciotole disegnate e una legenda: verde significa piena,
   rosso significa vuota;
 - alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
