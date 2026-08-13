@@ -66,20 +66,26 @@ class FeedingAgent(ProjectBDIAgent):
             self.request = request
 
         async def run(self) -> None:
-            result = await claim_task(
-                self,
-                self.request.task_id,
-                "feeding_execution",
-            )
-            if result.accepted:
-                self.agent.bdi.set_belief(
-                    "feeding_task",
+            await self.agent._begin_feeding_task(self.request.task_id)
+            try:
+                result = await claim_task(
+                    self,
                     self.request.task_id,
-                    self.request.cage_id,
-                    self.request.bowl_id,
+                    "feeding_execution",
                 )
-                return
+                if result.accepted:
+                    self.agent.bdi.set_belief(
+                        "feeding_task",
+                        self.request.task_id,
+                        self.request.cage_id,
+                        self.request.bowl_id,
+                    )
+                    return
+            except Exception:
+                self.agent._finish_feeding_task(self.request.task_id)
+                raise
 
+            self.agent._finish_feeding_task(self.request.task_id)
             requester = self.agent.task_requesters[self.request.task_id]
             body = FeedingStatus(
                 self.request.task_id,
@@ -117,6 +123,13 @@ class FeedingAgent(ProjectBDIAgent):
                 self.kill()
                 return
             self.started = True
+            try:
+                await self._execute()
+            finally:
+                self.agent._finish_feeding_task(self.task_id)
+                self.kill()
+
+        async def _execute(self) -> None:
             requester = self.agent.task_requesters[self.task_id]
             await self._send_status(requester, "agree", "accepted")
             self.agent.activity_log.record(
@@ -140,7 +153,6 @@ class FeedingAgent(ProjectBDIAgent):
                     self.task_id,
                 )
                 await self._fail(requester, take_result.reason)
-                self.kill()
                 return
 
             fill_result = await self._perform_in_area(
@@ -155,7 +167,6 @@ class FeedingAgent(ProjectBDIAgent):
             )
             if not fill_result.accepted:
                 await self._fail(requester, fill_result.reason)
-                self.kill()
                 return
 
             await self._send_status(requester, "inform", "completed")
@@ -165,7 +176,6 @@ class FeedingAgent(ProjectBDIAgent):
                 "task_completed",
             )
             self.agent.bdi.set_belief("feeding_succeeded", self.task_id)
-            self.kill()
 
         async def _perform_in_area(
             self,
@@ -258,7 +268,25 @@ class FeedingAgent(ProjectBDIAgent):
         self.failure_reasons: dict[str, str] = {}
         self.bdi_outcomes: dict[str, str] = {}
         self.bdi_outcome_ready = asyncio.Event()
+        self.feeding_lock = asyncio.Lock()
+        self.active_feeding_task: str | None = None
         super().__init__(jid, password, str(asl_file))
+
+    async def _begin_feeding_task(self, task_id: str) -> None:
+        if self.feeding_lock.locked():
+            self.activity_log.record(
+                task_id,
+                self.agent_label,
+                "feeding_task_waiting",
+            )
+        await self.feeding_lock.acquire()
+        self.active_feeding_task = task_id
+
+    def _finish_feeding_task(self, task_id: str) -> None:
+        if self.active_feeding_task != task_id:
+            return
+        self.active_feeding_task = None
+        self.feeding_lock.release()
 
     async def setup(self) -> None:
         template = Template()

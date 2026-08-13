@@ -315,7 +315,9 @@ class RescueCenterDashboard:
             css_class = "timeline-entry"
             if entry.lstrip().startswith("↳"):
                 css_class += " text-slate-400"
-            if rejected and index == len(entries) - 1:
+            if (
+                rejected and index == len(entries) - 1
+            ) or "resta in attesa" in entry:
                 css_class += " timeline-warning"
             self.timeline.push(entry, classes=css_class)
 

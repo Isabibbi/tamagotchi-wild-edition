@@ -114,6 +114,10 @@ def describe_activity(line: str) -> str:
             f"{agent} chiede di riportare {animal} nella sua gabbia."
         ),
         "task_accepted": f"{agent} accetta di riempire {subject}.",
+        "feeding_task_waiting": (
+            f"{agent} sta già riempiendo un'altra ciotola: "
+            f"la richiesta per {subject} resta in attesa."
+        ),
         "transport_accepted": f"{agent} accetta di portare {subject} {destination}.",
         "waiting_for_treatment_slot": (
             f"La sala cure è piena: {animal} resta nella sua gabbia."

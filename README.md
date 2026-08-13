@@ -35,6 +35,8 @@ stessa esecuzione e avanzano in modo concorrente tramite messaggi SPADE/XMPP.
 
 - ogni fase di lavoro viene assegnata atomicamente a un solo agente;
 - gli altri agenti dello stesso ruolo rifiutano il duplicato senza eseguirlo;
+- ogni addetto all'alimentazione esegue un solo task alla volta; le richieste
+  successive restano in attesa finché l'operatore torna disponibile;
 - per entrare in un'area operativa occorre un permesso dell'Environment;
 - il terzo agente attende e riprova finché uno dei due posti viene rilasciato;
 - il limite di 2 vale per Food Storage, Medical Storage, Cage Area e Treatment Room.

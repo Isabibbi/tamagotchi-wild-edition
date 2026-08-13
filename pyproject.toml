@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tamagotchi-wild"
-version = "0.8.5"
+version = "0.8.6"
 description = "Multi-agent care system for a Wildlife Rescue Center."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

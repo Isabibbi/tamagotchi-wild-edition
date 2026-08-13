@@ -198,6 +198,17 @@ def test_agent_activities_explain_the_medical_flow_without_technical_words() -> 
         assert "medical_" not in entry
 
 
+def test_waiting_feeding_task_explains_that_the_operator_is_busy() -> None:
+    entry = describe_activity(
+        "task=feeding_005 agent=feeding_01 event=feeding_task_waiting"
+    )
+
+    assert entry == (
+        "     ↳ Addetto alimentazione 1 sta già riempiendo un'altra ciotola: "
+        "la richiesta per la ciotola 5 resta in attesa."
+    )
+
+
 def test_task_assignment_is_explained_without_internal_phase_names() -> None:
     entry = describe_environment_event(
         {

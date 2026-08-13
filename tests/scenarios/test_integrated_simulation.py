@@ -66,3 +66,17 @@ def test_seven_agents_complete_ten_animal_workflows_with_safe_transport() -> Non
     assert any("feeding_execution:feeding_02" in claim for claim in result["task_claims"])
     assert any("medical_coordination:veterinary_02" in claim for claim in result["task_claims"])
     assert any("transport_outbound:logistics_03" in claim for claim in result["task_claims"])
+    active_feeding_by_agent: set[str] = set()
+    for line in result["logs"]:
+        fields = dict(
+            part.split("=", 1)
+            for part in line.split()
+            if "=" in part
+        )
+        if fields.get("event") == "task_accepted":
+            assert fields["agent"] not in active_feeding_by_agent
+            active_feeding_by_agent.add(fields["agent"])
+        elif fields.get("event") in {"task_completed", "task_failed"}:
+            active_feeding_by_agent.discard(fields["agent"])
+    assert not active_feeding_by_agent
+    assert any("event=feeding_task_waiting" in line for line in result["logs"])
