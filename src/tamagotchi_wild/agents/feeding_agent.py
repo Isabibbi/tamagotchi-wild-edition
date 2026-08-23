@@ -1,4 +1,3 @@
-"""Feeding Agent: accetta un task BDI e modifica il mondo tramite SPADE."""
 
 from __future__ import annotations
 

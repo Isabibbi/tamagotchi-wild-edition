@@ -1,4 +1,3 @@
-"""Logistics Agent: gestisce task di alimentazione e trasporto medico."""
 
 from __future__ import annotations
 

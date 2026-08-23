@@ -1,4 +1,3 @@
-"""Stato centralizzato e transizioni atomiche della griglia."""
 
 from __future__ import annotations
 
@@ -78,7 +77,6 @@ class WorldSnapshot:
 
 
 class EnvironmentState:
-    """Single source of truth for entities, actions and events."""
 
     def __init__(self, width: int, height: int, areas: Iterable[Area]) -> None:
         if width < 1 or height < 1:
@@ -159,7 +157,6 @@ class EnvironmentState:
         self._tasks[task.id] = task
 
     def apply(self, command: ActionCommand) -> ActionResult:
-        """Validate and apply one command; rejected commands never change state."""
 
         if command.action is ActionType.CLAIM_TASK:
             return self._apply_task_claim(command)
@@ -195,7 +192,6 @@ class EnvironmentState:
         return result
 
     def snapshot(self) -> WorldSnapshot:
-        """Return an immutable projection suitable for agents, tests and GUI."""
 
         return WorldSnapshot(
             width=self.width,

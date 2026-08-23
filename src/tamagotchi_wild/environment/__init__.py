@@ -1,4 +1,3 @@
-"""Ambiente autorevole e indipendente dal trasporto XMPP."""
 
 from tamagotchi_wild.environment.errors import (
     DuplicateEntityError,

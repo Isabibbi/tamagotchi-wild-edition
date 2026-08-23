@@ -1,4 +1,3 @@
-"""Contratti di messaggistica indipendenti dal comportamento degli agenti."""
 
 from tamagotchi_wild.messaging.contracts import (
     ActionRequest,

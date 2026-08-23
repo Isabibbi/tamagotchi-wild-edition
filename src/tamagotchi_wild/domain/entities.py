@@ -1,4 +1,3 @@
-"""Entità e valori del dominio del centro di recupero."""
 
 from __future__ import annotations
 
@@ -13,8 +12,6 @@ def _require_identifier(value: str, field_name: str) -> None:
 
 @dataclass(frozen=True, slots=True, order=True)
 class Position:
-    """Coordinata immutabile nella griglia 2D."""
-
     x: int
     y: int
 

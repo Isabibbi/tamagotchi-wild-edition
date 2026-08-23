@@ -1,4 +1,3 @@
-"""Base comune per gli agenti BDI operativi del progetto."""
 
 from __future__ import annotations
 

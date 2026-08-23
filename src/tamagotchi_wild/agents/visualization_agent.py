@@ -1,4 +1,3 @@
-"""Agente SPADE che consegna alla GUI gli aggiornamenti dell'Environment."""
 
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ from tamagotchi_wild.messaging import (
 
 
 class VisualizationAgent(Agent):
-    """Riceve esclusivamente snapshot inviati via SPADE/XMPP."""
 
     class UpdateReceiver(CyclicBehaviour):
         async def run(self) -> None:

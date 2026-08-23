@@ -1,4 +1,3 @@
-"""Contratti JSON del workflow veterinario e di trasporto."""
 
 from __future__ import annotations
 

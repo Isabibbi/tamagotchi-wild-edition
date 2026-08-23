@@ -1,4 +1,3 @@
-"""Proiezione read-only dello stato per una futura interfaccia 2D."""
 
 from __future__ import annotations
 
@@ -26,7 +25,6 @@ class GridProjection:
 
 
 def project_grid(snapshot: WorldSnapshot) -> GridProjection:
-    """Build render data without giving the GUI access to mutable world state."""
 
     area_by_cell = {
         position: area.kind

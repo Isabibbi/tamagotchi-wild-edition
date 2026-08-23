@@ -1,4 +1,3 @@
-"""Dashboard NiceGUI alimentata esclusivamente dal Visualization Agent SPADE."""
 
 from __future__ import annotations
 
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class RescueCenterDashboard:
-    """Una singola pagina browser con playback degli snapshot SPADE."""
 
     def __init__(
         self,
@@ -368,7 +366,6 @@ def run_graphical_simulation(
     port: int = 8080,
     show_browser: bool = True,
 ):
-    """Esegue NiceGUI come server principale e SPADE come processo autonomo."""
 
     bridge = SimulationBridge(
         config,

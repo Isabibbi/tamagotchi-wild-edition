@@ -1,4 +1,3 @@
-"""Configurazione della griglia e della simulazione multi-agente."""
 
 from __future__ import annotations
 
@@ -21,7 +20,6 @@ MAX_ANIMALS = 40
 
 @dataclass(frozen=True, slots=True)
 class SimulationConfig:
-    """Numero di operatori avviati insieme; Environment non e' contato."""
 
     veterinary_agents: int = 2
     logistics_agents: int = 3
@@ -66,8 +64,6 @@ def _rectangle(x_start: int, x_end: int, y_start: int, y_end: int):
 
 
 def default_areas(config: GridConfig = DEFAULT_GRID) -> tuple[Area, ...]:
-    """Partition the default grid into the four required operational areas."""
-
     split_x = config.width * 2 // 3
     split_y = config.height * 3 // 8
     return (

@@ -1,4 +1,3 @@
-"""Adattatore SPADE per l'ambiente centralizzato."""
 
 from __future__ import annotations
 
@@ -29,7 +28,6 @@ from tamagotchi_wild.observability import ActivityLog, MessageTrace
 
 
 def process_action_request(world: EnvironmentState, body: str) -> ActionResponse:
-    """Validate one JSON request and delegate the state change to the world."""
 
     try:
         request = ActionRequest.from_json(body)
@@ -44,7 +42,6 @@ def process_action_request(world: EnvironmentState, body: str) -> ActionResponse
 
 
 class EnvironmentAgent(Agent):
-    """SPADE boundary; the authoritative state remains independently testable."""
 
     class RequestBehaviour(CyclicBehaviour):
         async def run(self) -> None:
@@ -196,8 +193,6 @@ class EnvironmentAgent(Agent):
         request: ActionRequest,
         reason: str,
     ) -> bool:
-        """Publish only the first retry of the same temporary blocking episode."""
-
         rejection = (
             request.task_id,
             request.actor_id,
@@ -211,8 +206,6 @@ class EnvironmentAgent(Agent):
         return True
 
     def _clear_visualization_rejection(self, request: ActionRequest) -> None:
-        """Allow a future warning after this exact action eventually succeeds."""
-
         identity = (
             request.task_id,
             request.actor_id,

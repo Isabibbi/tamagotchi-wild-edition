@@ -1,4 +1,3 @@
-"""Agenti SPADE e adattatori verso il dominio."""
 
 from tamagotchi_wild.agents.environment_agent import (
     EnvironmentAgent,

@@ -1,4 +1,3 @@
-"""Contratti JSON versionati per le richieste indirizzate all'ambiente."""
 
 from __future__ import annotations
 
@@ -21,7 +20,7 @@ SCHEMA_VERSION = 1
 
 
 class MessageContractError(ValueError):
-    """Raised when a message body does not respect the public contract."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)

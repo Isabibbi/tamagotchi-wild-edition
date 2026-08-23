@@ -1,4 +1,3 @@
-"""Processo autonomo che esegue SPADE per la dashboard NiceGUI."""
 
 from __future__ import annotations
 

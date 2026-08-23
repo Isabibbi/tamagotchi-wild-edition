@@ -1,4 +1,3 @@
-"""Tema della dashboard web del CRAS."""
 
 NICEGUI_CSS = """
 :root {

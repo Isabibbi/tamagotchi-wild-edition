@@ -1,4 +1,3 @@
-"""Log leggibili e tracce dei messaggi per scenari e test."""
 
 from __future__ import annotations
 

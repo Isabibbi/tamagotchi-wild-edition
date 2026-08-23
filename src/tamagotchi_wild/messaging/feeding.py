@@ -1,4 +1,3 @@
-"""Payload e metadata del workflow di alimentazione."""
 
 from __future__ import annotations
 

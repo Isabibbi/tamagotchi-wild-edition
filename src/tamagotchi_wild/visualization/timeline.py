@@ -1,4 +1,3 @@
-"""Translation of technical events into simple English phrases."""
 
 from __future__ import annotations
 

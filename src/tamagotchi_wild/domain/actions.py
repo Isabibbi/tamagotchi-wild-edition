@@ -1,4 +1,3 @@
-"""Comandi e risultati accettati dall'ambiente autorevole."""
 
 from __future__ import annotations
 

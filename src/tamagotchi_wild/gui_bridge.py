@@ -1,4 +1,3 @@
-"""Canale locale tra il server NiceGUI e il processo principale di SPADE."""
 
 from __future__ import annotations
 
@@ -13,7 +12,6 @@ from tamagotchi_wild.config import SimulationConfig
 
 
 class SimulationBridge:
-    """Avvia SPADE separatamente e raccoglie frame e risultato per NiceGUI."""
 
     def __init__(
         self,
@@ -112,7 +110,6 @@ class SimulationBridge:
             self.result = error
 
     def frame_at(self, index: int):
-        """Restituisce un frame senza sottrarlo alle altre sessioni NiceGUI."""
 
         with self._state_lock:
             return self._frames[index] if index < len(self._frames) else None

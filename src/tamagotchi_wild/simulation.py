@@ -1,4 +1,3 @@
-"""Simulazione unica e scalabile di alimentazione e cure mediche."""
 
 from __future__ import annotations
 
@@ -120,7 +119,6 @@ class SimulationResult:
 
 
 def case_definitions(config: SimulationConfig) -> tuple[AnimalCase, ...]:
-    """Crea identificativi e posizioni deterministiche nella Cage Area."""
 
     template_world = create_default_environment()
     cage_area = next(

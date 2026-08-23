@@ -1,4 +1,3 @@
-"""Veterinary Agent: coordina trasporto, cura e rientro del paziente."""
 
 from __future__ import annotations
 

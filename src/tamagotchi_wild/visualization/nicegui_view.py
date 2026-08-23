@@ -1,4 +1,3 @@
-"""Proiezioni HTML/SVG pure usate dalla dashboard NiceGUI."""
 
 from __future__ import annotations
 
@@ -109,7 +108,6 @@ def render_floorplan_svg(
     previous_snapshot: dict | None = None,
     transition_seconds: float = 0.18,
 ) -> str:
-    """Disegna una pianta illustrata, senza mostrare le celle della griglia."""
 
     current_points = _agent_points(snapshot)
     previous_points = (
@@ -213,7 +211,6 @@ def render_floorplan_svg(
 
 
 def render_grid_svg(snapshot: dict) -> str:
-    """Alias mantenuto per compatibilità con il codice precedente."""
 
     return render_floorplan_svg(snapshot)
 

@@ -1,4 +1,3 @@
-"""Operazioni SPADE comuni verso l'Environment Agent."""
 
 from __future__ import annotations
 
@@ -24,8 +23,6 @@ async def environment_action(
     destination: Position | None = None,
     quantity: int | None = None,
 ) -> ActionResponse:
-    """Invia un comando correlato e ne valida la risposta JSON."""
-
     agent = behaviour.agent
     request = ActionRequest(
         task_id=task_id,
@@ -82,8 +79,6 @@ async def acquire_area(
     area_id: str,
     destination: Position,
 ) -> ActionResponse:
-    """Attende finche' una stanza ha posto, senza superarne la capienza."""
-
     deadline = asyncio.get_running_loop().time() + behaviour.agent.timeout_seconds
     while True:
         result = await environment_action(

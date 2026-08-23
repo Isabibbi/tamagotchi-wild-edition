@@ -1,4 +1,3 @@
-"""Contratto SPADE per gli aggiornamenti della visualizzazione."""
 
 from __future__ import annotations
 
@@ -69,8 +68,6 @@ class VisualizationUpdate:
         reason: str,
         activity_lines: tuple[str, ...] = (),
     ) -> VisualizationUpdate:
-        """Rappresenta anche un tentativo rifiutato, per mostrare le attese."""
-
         sequence = snapshot.event_count
         return cls(
             sequence=sequence,

@@ -1,4 +1,3 @@
-"""Avvia la simulazione CRAS integrata e configura gli agenti a runtime."""
 
 from __future__ import annotations
 
