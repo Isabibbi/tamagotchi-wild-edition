@@ -57,9 +57,9 @@ def test_rejected_area_access_becomes_a_readable_wait_event() -> None:
 
     assert seen == 0
     assert update.event["requested_action"] == "acquire_area"
-    assert any("La sala cure è al completo" in entry for entry in entries)
+    assert any("The treatment room is at full capacity" in entry for entry in entries)
     assert any(
-        "Operatore logistico 3 prova a entrare, ma deve aspettare" in entry
+        "Logistics operator 3 tries to enter but must wait" in entry
         for entry in entries
     )
 
@@ -78,8 +78,8 @@ def test_rejected_cage_access_explains_the_attempt_and_the_reason() -> None:
     )
 
     assert entry == (
-        "#012 · L'area gabbie è al completo. Operatore logistico 2 "
-        "prova a entrare, ma deve aspettare."
+        "#012 · The cage area is at full capacity. Logistics operator 2 "
+        "tries to enter but must wait."
     )
 
 
@@ -107,10 +107,10 @@ def test_other_temporary_blocks_are_explained_clearly() -> None:
         }
     )
 
-    assert "prova a prendere l'animale 4" in room_full
-    assert "i 3 posti della sala cure sono occupati" in room_full
-    assert "prova a prendere l'animale 5" in already_carrying
-    assert "sta già trasportando un altro animale" in already_carrying
+    assert "tries to pick up animal 4" in room_full
+    assert "all 3 slots in the treatment room are taken" in room_full
+    assert "tries to pick up" in already_carrying and "animal 5" in already_carrying
+    assert "already carrying another animal" in already_carrying
 
 
 def test_identical_retries_produce_one_warning_until_the_action_succeeds() -> None:
@@ -149,7 +149,7 @@ def test_environment_events_use_simple_italian_names() -> None:
             "target_id": "food-storage",
             "task_id": "feeding_005",
         }
-    ) == "#007 · Addetto alimentazione 2 entra nel magazzino del cibo."
+    ) == "#007 · Feeding staff 2 enters into the food storage."
 
     assert describe_environment_event(
         {
@@ -159,7 +159,7 @@ def test_environment_events_use_simple_italian_names() -> None:
             "target_id": "animal_005",
             "task_id": "medical_005",
         }
-    ) == "#008 · Operatore logistico 1 porta l'animale 5 nella sala cure."
+    ) == "#008 · Logistics operator 1 brings the animal 5 to the treatment room."
 
     assert describe_environment_event(
         {
@@ -169,7 +169,7 @@ def test_environment_events_use_simple_italian_names() -> None:
             "target_id": "animal_005",
             "task_id": "medical_005",
         }
-    ) == "#009 · Veterinario 1 cura l'animale 5."
+    ) == "#009 · Vet 1 treats the animal 5."
 
 
 def test_agent_activities_explain_the_medical_flow_without_technical_words() -> None:
@@ -185,13 +185,13 @@ def test_agent_activities_explain_the_medical_flow_without_technical_words() -> 
     )
 
     assert patient_ready == (
-        "     ↳ L'animale 5 è arrivato nella sala cure: "
-        "il veterinario inizia la cura."
+        "     ↳ The animal 5 has arrived in the treatment room: "
+        "the vet begins treatment."
     )
     assert waiting == (
-        "     ↳ La sala cure è piena: l'animale 5 resta nella sua gabbia."
+        "     ↳ Treatment room is full: the animal 5 stays in its cage."
     )
-    assert returned == "     ↳ L'animale 5 è tornato nella sua gabbia."
+    assert returned == "     ↳ The animal 5 has returned to its cage."
     for entry in (patient_ready, waiting, returned):
         assert "task" not in entry
         assert "outbound" not in entry
@@ -204,8 +204,8 @@ def test_waiting_feeding_task_explains_that_the_operator_is_busy() -> None:
     )
 
     assert entry == (
-        "     ↳ Addetto alimentazione 1 sta già riempiendo un'altra ciotola: "
-        "la richiesta per la ciotola 5 resta in attesa."
+        "     ↳ Feeding staff 1 is already filling another bowl: "
+        "the request for bowl 5 is on hold."
     )
 
 
@@ -220,6 +220,6 @@ def test_task_assignment_is_explained_without_internal_phase_names() -> None:
         }
     )
 
-    assert entry == "#004 · Veterinario 2 si occupa dell'animale 5."
+    assert entry == "#004 · Vet 2 takes care of animal 5."
     assert "medical_coordination" not in entry
     assert "claim" not in entry

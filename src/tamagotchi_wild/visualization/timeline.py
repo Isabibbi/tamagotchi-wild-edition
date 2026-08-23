@@ -1,4 +1,4 @@
-"""Traduzione degli eventi tecnici in frasi italiane semplici."""
+"""Translation of technical events into simple English phrases."""
 
 from __future__ import annotations
 
@@ -8,28 +8,28 @@ from tamagotchi_wild.messaging import VisualizationUpdate
 
 
 AREA_NAMES = {
-    "food-storage": "magazzino del cibo",
-    "medical-storage": "magazzino dei medicinali",
-    "cage-area": "area gabbie",
-    "treatment-room": "sala cure",
+    "food-storage": "food storage",
+    "medical-storage": "medical storage",
+    "cage-area": "cage area",
+    "treatment-room": "treatment room",
 }
 AREA_DESTINATIONS = {
-    "food-storage": "nel magazzino del cibo",
-    "medical-storage": "nel magazzino dei medicinali",
-    "cage-area": "nell'area gabbie",
-    "treatment-room": "nella sala cure",
+    "food-storage": "into the food storage",
+    "medical-storage": "into the medical storage",
+    "cage-area": "into the cage area",
+    "treatment-room": "into the treatment room",
 }
 AREA_ORIGINS = {
-    "food-storage": "dal magazzino del cibo",
-    "medical-storage": "dal magazzino dei medicinali",
-    "cage-area": "dall'area gabbie",
-    "treatment-room": "dalla sala cure",
+    "food-storage": "from the food storage",
+    "medical-storage": "from the medical storage",
+    "cage-area": "from the cage area",
+    "treatment-room": "from the treatment room",
 }
 AREA_SUBJECTS = {
-    "food-storage": "Il magazzino del cibo",
-    "medical-storage": "Il magazzino dei medicinali",
-    "cage-area": "L'area gabbie",
-    "treatment-room": "La sala cure",
+    "food-storage": "The food storage",
+    "medical-storage": "The medical storage",
+    "cage-area": "The cage area",
+    "treatment-room": "The treatment room",
 }
 
 
@@ -66,28 +66,28 @@ def describe_environment_event(event: dict) -> str:
         )
     else:
         descriptions = {
-            "initial_state": "La simulazione è iniziata.",
-            "acquire_area": f"{actor} entra {_area_destination(target_id)}.",
-            "release_area": f"{actor} esce {_area_origin(target_id)}.",
-            "take_food": f"{actor} prende il cibo per {_task_subject(task)}.",
-            "fill_bowl": f"{actor} riempie {target}.",
-            "pickup_sick_animal": f"{actor} prende {target} dalla gabbia.",
-            "deliver_to_treatment": f"{actor} porta {target} nella sala cure.",
+            "initial_state": "Simulation started.",
+            "acquire_area": f"{actor} enters {_area_destination(target_id)}.",
+            "release_area": f"{actor} leaves {_area_origin(target_id)}.",
+            "take_food": f"{actor} picks up food for {_task_subject(task)}.",
+            "fill_bowl": f"{actor} fills {target}.",
+            "pickup_sick_animal": f"{actor} picks up {target} from the cage.",
+            "deliver_to_treatment": f"{actor} brings {target} to the treatment room.",
             "take_medicine": (
-                f"{actor} prende il medicinale per {_task_subject(task)}."
+                f"{actor} picks up medicine for {_task_subject(task)}."
             ),
-            "treat_animal": f"{actor} cura {target}.",
-            "pickup_treated_animal": f"{actor} riprende {target} dopo la cura.",
-            "return_animal_to_cage": f"{actor} riporta {target} nella sua gabbia.",
+            "treat_animal": f"{actor} treats {target}.",
+            "pickup_treated_animal": f"{actor} collects {target} after treatment.",
+            "return_animal_to_cage": f"{actor} returns {target} to its cage.",
             "fail_task": (
-                f"{actor} non riesce a completare il lavoro per "
+                f"{actor} could not complete the task for "
                 f"{_task_subject(task)}."
             ),
-            "move_agent": f"{actor} va {_movement_destination(target_id)}.",
+            "move_agent": f"{actor} moves {_movement_destination(target_id)}.",
         }
         description = descriptions.get(
             action,
-            f"{actor} esegue un'azione su {target}.",
+            f"{actor} performs an action on {target}.",
         )
     return f"{prefix} · {description}"
 
@@ -104,33 +104,33 @@ def describe_activity(line: str) -> str:
         else subject
     )
     direction = values.get("direction", "")
-    destination = "nella sala cure" if direction == "outbound" else "nella sua gabbia"
+    destination = "into the treatment room" if direction == "outbound" else "to its cage"
     descriptions = {
-        "feeding_requested": f"{agent} chiede di riempire {subject}.",
+        "feeding_requested": f"{agent} requests refill of {subject}.",
         "outbound_transport_requested": (
-            f"{agent} chiede di portare {animal} nella sala cure."
+            f"{agent} requests transport of {animal} to the treatment room."
         ),
         "return_transport_requested": (
-            f"{agent} chiede di riportare {animal} nella sua gabbia."
+            f"{agent} requests return of {animal} to its cage."
         ),
-        "task_accepted": f"{agent} accetta di riempire {subject}.",
+        "task_accepted": f"{agent} accepts the refill of {subject}.",
         "feeding_task_waiting": (
-            f"{agent} sta già riempiendo un'altra ciotola: "
-            f"la richiesta per {subject} resta in attesa."
+            f"{agent} is already filling another bowl: "
+            f"the request for {subject} is on hold."
         ),
-        "transport_accepted": f"{agent} accetta di portare {subject} {destination}.",
+        "transport_accepted": f"{agent} accepts transport of {subject} {destination}.",
         "waiting_for_treatment_slot": (
-            f"La sala cure è piena: {animal} resta nella sua gabbia."
+            f"Treatment room is full: {animal} stays in its cage."
         ),
-        "task_completed": f"{agent} ha riempito {subject}.",
+        "task_completed": f"{agent} has filled {subject}.",
         "patient_ready": (
-            f"{_sentence_start(animal)} è arrivato nella sala cure: "
-            "il veterinario inizia la cura."
+            f"{_sentence_start(animal)} has arrived in the treatment room: "
+            "the vet begins treatment."
         ),
-        "treatment_completed": f"{agent} ha curato {animal}.",
-        "returned": f"{_sentence_start(animal)} è tornato nella sua gabbia.",
-        "task_failed": f"{agent} non riesce a riempire {subject}.",
-        "medical_task_failed": f"{agent} non riesce a curare {animal}.",
+        "treatment_completed": f"{agent} has treated {animal}.",
+        "returned": f"{_sentence_start(animal)} has returned to its cage.",
+        "task_failed": f"{agent} could not fill {subject}.",
+        "medical_task_failed": f"{agent} could not treat {animal}.",
     }
     description = descriptions.get(event)
     return f"     ↳ {description}" if description else ""
@@ -140,17 +140,17 @@ def _claim_description(actor: str, phase: str, task: str) -> str:
     subject = _task_subject(task)
     subject_with_of = _task_subject_with_of(task)
     descriptions = {
-        "feeding_coordination": f"{actor} organizza il riempimento {subject_with_of}.",
-        "feeding_execution": f"{actor} si occupa {subject_with_of}.",
-        "medical_coordination": f"{actor} si occupa {subject_with_of}.",
+        "feeding_coordination": f"{actor} coordinates the refill of {subject_with_of}.",
+        "feeding_execution": f"{actor} takes care of {subject_with_of}.",
+        "medical_coordination": f"{actor} takes care of {subject_with_of}.",
         "transport_outbound": (
-            f"{actor} prepara il viaggio {subject_with_of} verso la sala cure."
+            f"{actor} prepares the trip for {subject_with_of} to the treatment room."
         ),
         "transport_return": (
-            f"{actor} prepara il ritorno {subject_with_of} nella gabbia."
+            f"{actor} prepares the return of {subject_with_of} to the cage."
         ),
     }
-    return descriptions.get(phase, f"{actor} prende in carico {subject}.")
+    return descriptions.get(phase, f"{actor} takes on the task for {subject}.")
 
 
 def _rejection_description(
@@ -162,99 +162,99 @@ def _rejection_description(
 ) -> str:
     if requested_action == "acquire_area" and "capacity" in detail:
         return (
-            f"{_area_subject(target_id)} è al completo. "
-            f"{actor} prova a entrare, ma deve aspettare."
+            f"{_area_subject(target_id)} is at full capacity. "
+            f"{actor} tries to enter but must wait."
         )
     if requested_action == "acquire_area" and "busy with task" in detail:
         return (
-            f"{actor} prova a entrare {_area_destination(target_id)}, "
-            "ma sta ancora svolgendo un'altra attività."
+            f"{actor} tries to enter {_area_destination(target_id)}, "
+            "but is still busy with another task."
         )
     if "treatment room patient capacity" in detail:
         return (
-            f"{actor} prova a prendere {_task_subject(task)}, ma i 3 posti "
-            "della sala cure sono occupati. L'animale resta nella gabbia."
+            f"{actor} tries to pick up {_task_subject(task)}, but all 3 slots "
+            "in the treatment room are taken. The animal stays in the cage."
         )
     if "already carries animal" in detail:
         return (
-            f"{actor} prova a prendere {_target_name(target_id)}, ma sta già "
-            "trasportando un altro animale."
+            f"{actor} tries to pick up {_target_name(target_id)}, but is already "
+            "carrying another animal."
         )
     if "not enough food" in detail:
-        return f"{actor} prova a prendere il cibo, ma le scorte sono finite."
+        return f"{actor} tries to pick up food, but the stock is empty."
     if "not enough medicine" in detail:
         return (
-            f"{actor} prova a prendere il medicinale, ma le scorte sono finite."
+            f"{actor} tries to pick up medicine, but the stock is empty."
         )
     if "task phase already claimed by" in detail:
         owner_id = detail.rsplit(" ", 1)[-1]
         return (
-            f"{actor} prova a occuparsi {_task_subject_with_of(task)}, ma il lavoro "
-            f"è già stato assegnato a {_agent_name(owner_id)}."
+            f"{actor} tries to handle {_task_subject_with_of(task)}, but the task "
+            f"is already assigned to {_agent_name(owner_id)}."
         )
     attempts = {
-        "claim_task": "prendere in carico il lavoro",
-        "take_food": "prendere il cibo",
-        "fill_bowl": f"riempire {_target_name(target_id)}",
-        "pickup_sick_animal": f"prendere {_target_name(target_id)}",
+        "claim_task": "take on the task",
+        "take_food": "pick up food",
+        "fill_bowl": f"fill {_target_name(target_id)}",
+        "pickup_sick_animal": f"pick up {_target_name(target_id)}",
         "deliver_to_treatment": (
-            f"portare {_target_name(target_id)} nella sala cure"
+            f"bring {_target_name(target_id)} to the treatment room"
         ),
-        "take_medicine": "prendere il medicinale",
-        "treat_animal": f"curare {_target_name(target_id)}",
-        "pickup_treated_animal": f"riprendere {_target_name(target_id)}",
-        "return_animal_to_cage": f"riportare {_target_name(target_id)} in gabbia",
+        "take_medicine": "pick up medicine",
+        "treat_animal": f"treat {_target_name(target_id)}",
+        "pickup_treated_animal": f"collect {_target_name(target_id)}",
+        "return_animal_to_cage": f"return {_target_name(target_id)} to cage",
     }
-    attempt = attempts.get(requested_action, "continuare il lavoro")
-    return f"{actor} prova a {attempt}, ma in questo momento non può farlo."
+    attempt = attempts.get(requested_action, "continue the task")
+    return f"{actor} tries to {attempt}, but cannot do so right now."
 
 
 def _agent_name(identifier: str) -> str:
     if identifier == "environment":
-        return "Il sistema"
+        return "The system"
     labels = {
-        "veterinary": "Veterinario",
-        "logistics": "Operatore logistico",
-        "feeding": "Addetto alimentazione",
+        "veterinary": "Vet",
+        "logistics": "Logistics operator",
+        "feeding": "Feeding staff",
     }
     for prefix, label in labels.items():
         number = _identifier_number(identifier, prefix)
         if number is not None:
             return f"{label} {number}"
-    return identifier.replace("_", " ").strip().capitalize() or "Un operatore"
+    return identifier.replace("_", " ").strip().capitalize() or "An operator"
 
 
 def _target_name(identifier: str) -> str:
     if identifier in AREA_NAMES:
         return AREA_NAMES[identifier]
     labels = {
-        "animal": "l'animale",
-        "bowl": "la ciotola",
-        "cage": "la gabbia",
-        "medicine_stock": "la scorta medicinali",
-        "food_stock": "la scorta cibo",
+        "animal": "the animal",
+        "bowl": "the bowl",
+        "cage": "the cage",
+        "medicine_stock": "the medicine stock",
+        "food_stock": "the food stock",
     }
     for prefix, label in labels.items():
         number = _identifier_number(identifier, prefix)
         if number is not None:
             return f"{label} {number}"
-    return identifier.replace("_", " ").replace("-", " ").strip() or "la destinazione"
+    return identifier.replace("_", " ").replace("-", " ").strip() or "the destination"
 
 
 def _task_subject(task: str) -> str:
     if number := _identifier_number(task, "feeding"):
-        return f"la ciotola {number}"
+        return f"bowl {number}"
     if number := _identifier_number(task, "medical"):
-        return f"l'animale {number}"
-    return "l'operazione"
+        return f"animal {number}"
+    return "the operation"
 
 
 def _task_subject_with_of(task: str) -> str:
     if number := _identifier_number(task, "feeding"):
-        return f"della ciotola {number}"
+        return f"bowl {number}"
     if number := _identifier_number(task, "medical"):
-        return f"dell'animale {number}"
-    return "dell'operazione"
+        return f"animal {number}"
+    return "the operation"
 
 
 def _identifier_number(identifier: str, prefix: str) -> int | None:
@@ -263,11 +263,11 @@ def _identifier_number(identifier: str, prefix: str) -> int | None:
 
 
 def _area_destination(identifier: str) -> str:
-    return AREA_DESTINATIONS.get(identifier, f"verso {_target_name(identifier)}")
+    return AREA_DESTINATIONS.get(identifier, f"towards {_target_name(identifier)}")
 
 
 def _area_origin(identifier: str) -> str:
-    return AREA_ORIGINS.get(identifier, f"da {_target_name(identifier)}")
+    return AREA_ORIGINS.get(identifier, f"from {_target_name(identifier)}")
 
 
 def _area_subject(identifier: str) -> str:
@@ -277,7 +277,7 @@ def _area_subject(identifier: str) -> str:
 def _movement_destination(identifier: str) -> str:
     if identifier in AREA_DESTINATIONS:
         return AREA_DESTINATIONS[identifier]
-    return f"verso {_target_name(identifier)}"
+    return f"towards {_target_name(identifier)}"
 
 
 def _sentence_start(value: str) -> str:

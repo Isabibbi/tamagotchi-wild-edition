@@ -16,11 +16,11 @@ ROLE_COLORS = {
     "feeding": "#dc6b21",
 }
 ROLE_LABELS = {
-    "veterinary": "Veterinario",
-    "logistics": "Logistica",
-    "feeding": "Alimentazione",
+    "veterinary": "Veterinary",
+    "logistics": "Logistics",
+    "feeding": "Feeding",
 }
-ROLE_INITIALS = {"veterinary": "V", "logistics": "L", "feeding": "A"}
+ROLE_INITIALS = {"veterinary": "V", "logistics": "L", "feeding": "F"}
 HEALTH_COLORS = {
     "sick": "#dc2626",
     "in_outbound_transport": "#7c3aed",
@@ -30,12 +30,12 @@ HEALTH_COLORS = {
     "healthy": "#16a34a",
 }
 HEALTH_LABELS = {
-    "sick": "Malato",
-    "in_outbound_transport": "Verso le cure",
-    "in_treatment": "In trattamento",
-    "treated": "Trattato",
-    "in_return_transport": "Rientro in gabbia",
-    "healthy": "Sano",
+    "sick": "Sick",
+    "in_outbound_transport": "Going to treatment",
+    "in_treatment": "In treatment",
+    "treated": "Treated",
+    "in_return_transport": "Returning to cage",
+    "healthy": "Healthy",
 }
 SPECIES_SYMBOLS = {
     "fox": "&#x1F98A;",
@@ -123,7 +123,7 @@ def render_floorplan_svg(
 
     chunks = [
         f'<svg viewBox="0 0 {FLOORPLAN_WIDTH} {FLOORPLAN_HEIGHT}" '
-        'role="img" aria-label="Pianta illustrata del centro di recupero" '
+        'role="img" aria-label="Illustrated floorplan of the rescue centre" '
         'xmlns="http://www.w3.org/2000/svg">',
         _svg_definitions(),
         '<rect width="1120" height="720" rx="28" fill="#d8e1dc"/>',
@@ -202,9 +202,9 @@ def render_floorplan_svg(
         (
             '<g transform="translate(435 670)">'
             '<circle cx="0" cy="0" r="6" fill="#16a34a"/>'
-            '<text x="13" y="4" class="floor-note">Operatore in attività</text>'
+            '<text x="13" y="4" class="floor-note">Active operator</text>'
             '<circle cx="150" cy="0" r="6" fill="#94a3b8"/>'
-            '<text x="163" y="4" class="floor-note">Operatore in attesa</text>'
+            '<text x="163" y="4" class="floor-note">Waiting operator</text>'
             '</g>',
             "</svg>",
         )
@@ -279,7 +279,7 @@ def _render_hallway() -> str:
         <rect width="156" height="39" rx="18" fill="#ffffff" opacity=".8"/>
         <circle cx="21" cy="19" r="11" fill="#16a34a"/>
         <path d="M17 19l3 3 6-7" fill="none" stroke="white" stroke-width="3"/>
-        <text x="42" y="23" class="floor-note">Corridoio operativo</text>
+        <text x="42" y="23" class="floor-note">Operational corridor</text>
       </g>
     </g>
     """
@@ -312,11 +312,11 @@ def _render_food_storage(snapshot: dict) -> str:
     return _room_frame(
         "food-storage",
         "url(#foodFloor)",
-        "MAGAZZINO ALIMENTI",
-        f"SCORTE DISPONIBILI: {quantity}",
+        "FOOD STORAGE",
+        f"AVAILABLE STOCK: {quantity}",
         "&#x1F35A;",
     ) + """
-    <g aria-label="Scaffali e contenitori del magazzino alimenti">
+    <g aria-label="Shelves and containers in the food storage">
       <rect x="52" y="92" width="78" height="112" rx="5" fill="#76533a"/>
       <path d="M58 122h66M58 156h66M78 92v112M105 92v112" stroke="#d5b184" stroke-width="5"/>
       <g fill="#b7793f" stroke="#724b2b" stroke-width="2">
@@ -336,11 +336,11 @@ def _render_medical_storage(snapshot: dict) -> str:
     return _room_frame(
         "medical-storage",
         "url(#medicalFloor)",
-        "MAGAZZINO MEDICO",
-        f"MEDICINALI DISPONIBILI: {quantity}",
+        "MEDICAL STORAGE",
+        f"MEDICINE AVAILABLE: {quantity}",
         "&#x2695;",
     ) + """
-    <g aria-label="Armadietti e attrezzature mediche">
+    <g aria-label="Cabinets and medical equipment">
       <rect x="724" y="86" width="100" height="120" rx="8" fill="#f8fafc" stroke="#7894a4" stroke-width="4"/>
       <path d="M774 88v116M731 136h86" stroke="#b6c8d2" stroke-width="3"/>
       <path d="M764 111h20m-10-10v20" stroke="#e04848" stroke-width="7" stroke-linecap="round"/>
@@ -361,17 +361,17 @@ def _render_cage_room() -> str:
     return _room_frame(
         "cage-area",
         "url(#cageFloor)",
-        "AREA GABBIE",
-        "RICOVERO E OSSERVAZIONE DEGLI ANIMALI",
+        "CAGE AREA",
+        "SHELTER AND ANIMAL OBSERVATION",
         "&#x25A6;",
     ) + """
     <g class="cage-bowl-legend" transform="translate(452 340)"
-       aria-label="Legenda ciotole: verde piena, rossa vuota">
+       aria-label="Bowl legend: green full, red empty">
       <rect width="126" height="25" rx="12" fill="#ffffff" opacity=".9"/>
       <circle cx="13" cy="12.5" r="5" fill="#22c55e"/>
-      <text x="22" y="16" class="tiny-label">PIENA</text>
+      <text x="22" y="16" class="tiny-label">FULL</text>
       <circle cx="70" cy="12.5" r="5" fill="#ef4444"/>
-      <text x="79" y="16" class="tiny-label">VUOTA</text>
+      <text x="79" y="16" class="tiny-label">EMPTY</text>
     </g>
     <g opacity=".8">
       <rect x="49" y="381" width="607" height="287" rx="14" fill="#f6f2e7"/>
@@ -384,11 +384,11 @@ def _render_treatment_room() -> str:
     return _room_frame(
         "treatment-room",
         "url(#treatmentFloor)",
-        "SALA TRATTAMENTI",
-        "MASSIMO 3 PAZIENTI · CURA PRIORITARIA",
+        "TREATMENT ROOM",
+        "MAX 3 PATIENTS · PRIORITY CARE",
         "&#x1FA7A;",
     ) + """
-    <g aria-label="Lettino e attrezzatura della sala trattamenti">
+    <g aria-label="Bed and equipment in the treatment room">
       <rect x="785" y="441" width="190" height="78" rx="28" fill="#d8eef0" stroke="#50808a" stroke-width="5" filter="url(#objectShadow)"/>
       <path d="M810 515v47M948 515v47" stroke="#50636b" stroke-width="9"/>
       <circle cx="810" cy="567" r="8" fill="#334155"/><circle cx="948" cy="567" r="8" fill="#334155"/>
@@ -492,7 +492,7 @@ def _render_cage(
         )
     bowl_full = bowl is not None and bowl["level"] == bowl["capacity"]
     bowl_color = "#22c55e" if bowl_full else "#ef4444"
-    bowl_state = "piena" if bowl_full else "vuota"
+    bowl_state = "full" if bowl_full else "empty"
     bowl_x = x + width - 22
     bowl_y = y + height - 12
     food_marks = (
@@ -504,7 +504,7 @@ def _render_cage(
     )
     return (
         f'<g class="animal-cage" data-cage-id="{cage_id}">'
-        f'<title>{cage_id} · ciotola {bowl_state}</title>'
+        f'<title>{cage_id} · bowl {bowl_state}</title>'
         f'<rect x="{x:.1f}" y="{y:.1f}" width="{width:.1f}" height="{height:.1f}" rx="9" '
         'fill="#e9dfca" stroke="#35434b" stroke-width="6" filter="url(#objectShadow)"/>'
         f'<rect x="{x + 6:.1f}" y="{y + 7:.1f}" width="{width - 12:.1f}" height="{height - 14:.1f}" rx="5" fill="#f8f4e9"/>'
@@ -513,8 +513,8 @@ def _render_cage(
         f'<text x="{x + 15:.1f}" y="{y + 4:.1f}" font-family="Inter,Segoe UI,sans-serif" font-size="9" font-weight="800" fill="#ffffff">{cage_id}</text>'
         f'<rect x="{x + width - 21:.1f}" y="{y + height * .38:.1f}" width="12" height="22" rx="3" fill="#d6a43d" stroke="#6b4f17" stroke-width="2"/>'
         f'<g class="cage-bowl" data-state="{bowl_state}" '
-        f'aria-label="Ciotola {bowl_state}">'
-        f'<title>Ciotola {bowl_state}</title>'
+        f'aria-label="Bowl {bowl_state}">'  
+        f'<title>Bowl {bowl_state}</title>'
         f'<path d="M{bowl_x - 14:.1f} {bowl_y - 2:.1f} '
         f'Q{bowl_x:.1f} {bowl_y + 5:.1f} {bowl_x + 14:.1f} {bowl_y - 2:.1f} '
         f'L{bowl_x + 10:.1f} {bowl_y + 9:.1f} '
@@ -591,7 +591,7 @@ def _render_operator(
         else ""
     )
     accessory = _role_accessory(role)
-    state = f"In attività · {area_id}" if active else "In attesa nel corridoio"
+    state = f"Active · {area_id}" if active else "Waiting in corridor"
     return (
         f'<g class="{css_class}" data-agent-id="{agent_id}" '
         f'transform="translate({current[0]:.1f} {current[1]:.1f})">'
@@ -657,7 +657,7 @@ def _render_carried_animal(
         )
     return (
         f'<g class="carried-animal" transform="translate({current_position[0]:.1f} {current_position[1]:.1f})">'
-        f'<title>{escape(animal["id"])} trasportato</title>{animation}'
+        f'<title>{escape(animal["id"])} being transported</title>{animation}'
         '<rect x="-18" y="-15" width="36" height="30" rx="8" fill="#caa675" stroke="#654b2d" stroke-width="3"/>'
         f'<text x="0" y="8" text-anchor="middle" font-size="24">{symbol}</text>'
         '</g>'
@@ -692,7 +692,7 @@ def render_operator_roster(snapshot: dict) -> str:
     for agent in snapshot["agents"]:
         area = area_for_agent.get(agent["id"])
         active = area is not None
-        state = f"In attività · {area}" if active else "In attesa"
+        state = f"Active · {area}" if active else "Waiting"
         state_class = "staff-active" if active else "staff-idle"
         cards.append(
             f'<div class="staff-chip {state_class}">'
@@ -707,16 +707,16 @@ def render_operator_roster(snapshot: dict) -> str:
 def render_area_access(snapshot: dict) -> str:
     cards = []
     labels = {
-        "food-storage": "Magazzino alimenti",
-        "medical-storage": "Magazzino medico",
-        "cage-area": "Area gabbie",
-        "treatment-room": "Sala trattamenti",
+        "food-storage": "Food storage",
+        "medical-storage": "Medical storage",
+        "cage-area": "Cage area",
+        "treatment-room": "Treatment room",
     }
     for access in snapshot["area_access"]:
         current = len(access["occupants"])
         capacity = access["capacity"]
         tone = "room-full" if current == capacity else "room-free"
-        occupants = ", ".join(access["occupants"]) or "Nessun operatore"
+        occupants = ", ".join(access["occupants"]) or "No operators"
         detail = occupants
         if access["area_id"] == "treatment-room":
             treatment = snapshot.get("treatment", {})
@@ -736,7 +736,7 @@ def render_area_access(snapshot: dict) -> str:
 def render_placeholder_svg() -> str:
     return (
         f'<svg viewBox="0 0 {FLOORPLAN_WIDTH} {FLOORPLAN_HEIGHT}" '
-        'role="img" aria-label="Pianta del centro in caricamento" '
+        'role="img" aria-label="Rescue centre floorplan loading" '
         'xmlns="http://www.w3.org/2000/svg">'
         '<rect width="100%" height="100%" rx="24" fill="#e6ebe7"/>'
         '<path d="M170 190h780v350H170z" fill="#ffffff" stroke="#52636b" stroke-width="10"/>'
@@ -744,9 +744,9 @@ def render_placeholder_svg() -> str:
         f'<text x="{FLOORPLAN_WIDTH / 2}" y="{FLOORPLAN_HEIGHT / 2 - 20}" '
         'text-anchor="middle" font-family="Inter,Segoe UI,sans-serif" '
         'font-size="24" font-weight="800" fill="#334155">'
-        'Connessione al Visualization Agent SPADE</text>'
+        'Connecting to Visualization Agent SPADE</text>'
         f'<text x="{FLOORPLAN_WIDTH / 2}" y="{FLOORPLAN_HEIGHT / 2 + 18}" '
         'text-anchor="middle" font-family="Inter,Segoe UI,sans-serif" '
-        'font-size="14" fill="#64748b">Preparazione della pianta del centro…</text>'
+        'font-size="14" fill="#64748b">Preparing the centre floorplan…</text>'
         '</svg>'
     )

@@ -59,17 +59,17 @@ class RescueCenterDashboard:
                     )
                 ui.space()
                 self.status_badge = ui.badge(
-                    "Connessione a SPADE…",
+                    "Connecting to SPADE…",
                     color="info",
                 ).mark("simulation-status")
                 self.pause_button = ui.button(
-                    "Pausa playback",
+                    "Pause playback",
                     icon="pause",
                     on_click=self._toggle_playback,
                     color="slate-700",
                 ).props("unelevated rounded")
                 ui.button(
-                    "Chiudi",
+                    "Close",
                     icon="close",
                     on_click=app.shutdown,
                     color="negative",
@@ -97,33 +97,33 @@ class RescueCenterDashboard:
     def _build_intro(self) -> None:
         with ui.row().classes("w-full items-center justify-between gap-4"):
             with ui.column().classes("gap-1"):
-                ui.label("Centro di Recupero Animali Selvatici").classes(
+                ui.label("Wildlife Rescue Centre").classes(
                     "text-2xl font-black text-slate-900"
                 )
                 ui.label(
-                    "Alimentazione e cure mediche avanzano insieme tramite SPADE/XMPP."
+                    "Feeding and medical care run together via SPADE/XMPP."
                 ).classes("text-sm text-slate-500")
             with ui.row().classes("items-end gap-3"):
                 ui.badge(
-                    f"{self.config.operator_count} operatori",
+                    f"{self.config.operator_count} operators",
                     color="blue-700",
                 ).props("outline")
                 ui.badge(
                     (
-                        "1 animale"
+                        "1 animal"
                         if self.config.animal_count == 1
-                        else f"{self.config.animal_count} animali"
+                        else f"{self.config.animal_count} animals"
                     ),
                     color="green-700",
                 ).props("outline")
                 ui.select(
                     {
-                        0.05: "Molto veloce",
-                        0.10: "Veloce",
-                        0.20: "Normale",
-                        0.50: "Lento",
+                        0.05: "Very fast",
+                        0.10: "Fast",
+                        0.20: "Normal",
+                        0.50: "Slow",
                     },
-                    label="Velocità playback",
+                    label="Playback speed",
                     value=self.step_delay_seconds,
                     on_change=self._set_speed,
                 ).props("outlined dense").classes("w-44")
@@ -134,26 +134,26 @@ class RescueCenterDashboard:
         ):
             self.healthy_value, self.healthy_progress = self._metric_card(
                 "favorite",
-                "Animali sani",
+                "Healthy animals",
                 "0/0",
                 "green",
             )
             self.bowls_value, self.bowls_progress = self._metric_card(
                 "restaurant",
-                "Ciotole piene",
+                "Full bowls",
                 "0/0",
                 "orange",
             )
             self.medical_value, self.medical_progress = self._metric_card(
                 "medical_services",
-                "Cure completate",
+                "Treatments done",
                 "0/0",
                 "blue",
             )
             self.resources_value, _ = self._metric_card(
                 "inventory_2",
-                "Scorte disponibili",
-                "Cibo 0 · Medicine 0",
+                "Available stock",
+                "Food 0 · Medicine 0",
                 "purple",
             )
 
@@ -169,7 +169,7 @@ class RescueCenterDashboard:
                 "text-2xl font-black text-slate-900"
             )
             progress = None
-            if title != "Scorte disponibili":
+            if title != "Available stock":
                 progress = ui.linear_progress(
                     0,
                     show_value=False,
@@ -181,13 +181,13 @@ class RescueCenterDashboard:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
                 with ui.column().classes("gap-0"):
-                    ui.label("Centro di recupero").classes(
+                    ui.label("Rescue centre").classes(
                         "text-lg font-black text-slate-900"
                     )
                     ui.label(
-                        "Pianta illustrata con stanze, gabbie e operatori in movimento."
+                        "Illustrated floorplan with rooms, cages and operators in motion."
                     ).classes("text-xs text-slate-500")
-                self.event_label = ui.label("Snapshot iniziale in arrivo").classes(
+                self.event_label = ui.label("Waiting for first snapshot").classes(
                     "text-xs font-bold text-green-700"
                 )
             self.floorplan_html = ui.html(
@@ -197,12 +197,12 @@ class RescueCenterDashboard:
 
     def _build_staff_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
-            ui.label("Staff operativo").classes("text-lg font-black text-slate-900")
+            ui.label("Active staff").classes("text-lg font-black text-slate-900")
             ui.label(
-                "Gli operatori in verde stanno lavorando; gli altri attendono nel corridoio."
+                "Operators in green are working; others are waiting in the corridor."
             ).classes("text-xs text-slate-500")
             self.staff_html = ui.html(
-                '<div class="text-slate-400 text-sm">In attesa degli agenti…</div>',
+                '<div class="text-slate-400 text-sm">Waiting for agents…</div>',
                 sanitize=False,
             ).classes("w-full").mark("staff-roster")
 
@@ -210,37 +210,37 @@ class RescueCenterDashboard:
         with ui.card().classes("cras-card timeline-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
                 with ui.column().classes("gap-0"):
-                    ui.label("Cronologia live").classes(
+                    ui.label("Live timeline").classes(
                         "text-lg font-black text-slate-900"
                     )
                     ui.label(
-                        "Azioni completate e tentativi bloccati, passo dopo passo"
+                        "Completed actions and blocked attempts, step by step"
                     ).classes("text-xs text-slate-500")
                 ui.icon("sensors", color="green-600")
             self.timeline = ui.log(max_lines=600).classes(
                 "event-log w-full p-3"
             ).mark("event-timeline")
             self.timeline.push(
-                "Connessione al Visualization Agent SPADE…",
+                "Connecting to Visualization Agent SPADE…",
                 classes="timeline-entry",
             )
 
     def _build_access_card(self) -> None:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Capacità delle aree").classes(
+                ui.label("Area capacity").classes(
                     "text-lg font-black text-slate-900"
                 )
-                self.active_value = ui.badge("0 attivi", color="green-700")
+                self.active_value = ui.badge("0 active", color="green-700")
             self.access_html = ui.html(
-                '<div class="text-slate-400 text-sm">In attesa dello stato…</div>',
+                '<div class="text-slate-400 text-sm">Waiting for state…</div>',
                 sanitize=False,
             ).classes("w-full").mark("area-access")
 
     def _poll_updates(self) -> None:
         self.poll_count += 1
         if self.poll_count == 1:
-            self.status_badge.set_text("Worker SPADE in avvio…")
+            self.status_badge.set_text("Starting SPADE worker…")
         try:
             self._poll_updates_once()
         except Exception as exc:
@@ -264,13 +264,13 @@ class RescueCenterDashboard:
             return
         self.last_sequence = update.sequence
         metrics = snapshot_metrics(update.snapshot)
-        self.status_badge.set_text("SPADE connesso")
+        self.status_badge.set_text("SPADE connected")
         self.status_badge.props("color=positive")
         rejected = update.event.get("action") == "action_rejected"
         self.event_label.set_text(
-            f"Tentativo bloccato #{update.sequence:03d}"
+            f"Blocked attempt #{update.sequence:03d}"
             if rejected
-            else f"Evento SPADE #{update.sequence:03d}"
+            else f"SPADE event #{update.sequence:03d}"
         )
         frame_interval = (
             self.timer.interval
@@ -287,7 +287,7 @@ class RescueCenterDashboard:
         self.previous_snapshot = update.snapshot
         self.staff_html.set_content(render_operator_roster(update.snapshot))
         self.access_html.set_content(render_area_access(update.snapshot))
-        self.active_value.set_text(f"{metrics.active_operators} attivi")
+        self.active_value.set_text(f"{metrics.active_operators} active")
         self.healthy_value.set_text(
             f"{metrics.healthy_animals}/{metrics.animal_count}"
         )
@@ -296,7 +296,7 @@ class RescueCenterDashboard:
             f"{metrics.completed_medical_tasks}/{metrics.medical_task_count}"
         )
         self.resources_value.set_text(
-            f"Cibo {metrics.food_remaining} · Medicine {metrics.medicine_remaining}"
+            f"Food {metrics.food_remaining} · Medicine {metrics.medicine_remaining}"
         )
         self.healthy_progress.set_value(
             _ratio(metrics.healthy_animals, metrics.animal_count)
@@ -317,25 +317,25 @@ class RescueCenterDashboard:
                 css_class += " text-slate-400"
             if (
                 rejected and index == len(entries) - 1
-            ) or "resta in attesa" in entry:
+            ) or "on hold" in entry:
                 css_class += " timeline-warning"
             self.timeline.push(entry, classes=css_class)
 
     def _finish(self, result) -> None:
         self.bridge.result = result
         if isinstance(result, Exception):
-            self.status_badge.set_text("Simulazione interrotta")
+            self.status_badge.set_text("Simulation stopped")
             self.status_badge.props("color=negative")
             self.timeline.push(
-                f"ERRORE · {result}",
+                f"ERROR · {result}",
                 classes="timeline-entry text-red-300",
             )
             return
-        outcome = "Completata" if result.success else "Fallita"
-        self.status_badge.set_text(f"Simulazione {outcome.lower()}")
+        outcome = "Completed" if result.success else "Failed"
+        self.status_badge.set_text(f"Simulation {outcome.lower()}")
         self.status_badge.props("color=positive" if result.success else "color=negative")
         self.timeline.push(
-            f"FINE · Feeding {result.completed_feeding_tasks}/"
+            f"END · Feeding {result.completed_feeding_tasks}/"
             f"{result.feeding_task_count} · Medical "
             f"{result.completed_medical_tasks}/{result.medical_task_count}",
             classes=(
@@ -348,11 +348,11 @@ class RescueCenterDashboard:
     def _toggle_playback(self) -> None:
         if self.timer.active:
             self.timer.deactivate()
-            self.pause_button.set_text("Riprendi playback")
+            self.pause_button.set_text("Resume playback")
             self.pause_button.props("icon=play_arrow")
         else:
             self.timer.activate()
-            self.pause_button.set_text("Pausa playback")
+            self.pause_button.set_text("Pause playback")
             self.pause_button.props("icon=pause")
 
     def _set_speed(self, event) -> None:
@@ -405,7 +405,7 @@ def run_graphical_simulation(
             port=port,
             title="Tamagotchi Wild Edition · SPADE",
             favicon="🐾",
-            language="it",
+            language="en",
             dark=False,
             show=show_browser,
             reload=False,
