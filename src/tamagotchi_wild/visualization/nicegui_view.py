@@ -524,8 +524,17 @@ def _agent_points(snapshot: dict | None) -> dict[str, tuple[float, float]]:
         for access in snapshot["area_access"]
     }
     points: dict[str, tuple[float, float]] = {}
-    waiting_start = 244
-    waiting_step = 104
+    num_agents = len(agents)
+    if num_agents <= 1:
+        waiting_start = 560.0
+        waiting_step = 0.0
+    else:
+        corridor_start = 80.0
+        corridor_end = 1040.0
+        max_span = corridor_end - corridor_start
+        waiting_step = min(104.0, max_span / (num_agents - 1))
+        total_width = waiting_step * (num_agents - 1)
+        waiting_start = (FLOORPLAN_WIDTH - total_width) / 2.0
     for index, agent in enumerate(agents):
         area_id = area_for_agent.get(agent["id"])
         if area_id in ROOM_OPERATOR_POINTS:

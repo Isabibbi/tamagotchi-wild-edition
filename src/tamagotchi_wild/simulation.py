@@ -211,12 +211,18 @@ def build_environment(
         Position(2, 1),
         Position(6, 1),
         Position(3, 4),
+        Position(7, 1),
+        Position(4, 4),
+        Position(10, 4),
+        Position(1, 2),
+        Position(8, 1),
+        Position(5, 4),
+        Position(9, 5),
+        Position(2, 2),
+        Position(10, 5),
     )
-    for (jid, role), position in zip(
-        identities,
-        staging_positions[: len(identities)],
-        strict=True,
-    ):
+    for index, (jid, role) in enumerate(identities):
+        position = staging_positions[index % len(staging_positions)]
         world.register_agent(AgentState(jid.split("@", 1)[0], role, position))
     return world
 
@@ -522,18 +528,25 @@ def run_simulation(
     timeout_seconds: float = 60.0,
     visualization_queue: Queue | None = None,
 ) -> SimulationResult:
-    holder: dict[str, SimulationResult] = {}
+    holder: dict[str, Any] = {}
 
     async def run() -> None:
-        holder["result"] = await execute_simulation(
-            config,
-            food,
-            medicine,
-            timeout_seconds,
-            visualization_queue,
-        )
+        try:
+            holder["result"] = await execute_simulation(
+                config,
+                food,
+                medicine,
+                timeout_seconds,
+                visualization_queue,
+            )
+        except Exception as exc:
+            holder["error"] = exc
 
     spade.run(run(), embedded_xmpp_server=True)
+    if "error" in holder:
+        raise holder["error"]
+    if "result" not in holder:
+        raise RuntimeError("simulation runner exited without producing a result")
     return holder["result"]
 
 

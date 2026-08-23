@@ -410,6 +410,8 @@ def run_graphical_simulation(
             uvicorn_logging_level="warning",
         )
         return bridge.result
+    except KeyboardInterrupt:
+        return bridge.result
     finally:
         bridge.stop()
 

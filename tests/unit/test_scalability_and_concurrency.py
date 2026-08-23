@@ -27,9 +27,18 @@ def test_default_configuration_runs_seven_operational_agents() -> None:
     assert config.feeding_agents == 2
 
 
-def test_runtime_configuration_rejects_more_than_seven_agents() -> None:
-    with pytest.raises(ValueError, match="at most 7"):
-        SimulationConfig(veterinary_agents=2, logistics_agents=4, feeding_agents=2)
+def test_runtime_configuration_allows_fifteen_agents() -> None:
+    config = SimulationConfig(
+        veterinary_agents=5,
+        logistics_agents=5,
+        feeding_agents=5,
+    )
+    assert config.operator_count == 15
+
+
+def test_runtime_configuration_rejects_more_than_fifteen_agents() -> None:
+    with pytest.raises(ValueError, match="at most 15"):
+        SimulationConfig(veterinary_agents=5, logistics_agents=6, feeding_agents=5)
 
 
 def test_runtime_configuration_builds_the_requested_agent_pool() -> None:
@@ -48,6 +57,26 @@ def test_runtime_configuration_builds_the_requested_agent_pool() -> None:
         "logistics_02",
         "veterinary_01",
     ]
+
+
+def test_environment_builds_with_ten_and_fifteen_agents() -> None:
+    config_10 = SimulationConfig(
+        veterinary_agents=2,
+        logistics_agents=3,
+        feeding_agents=5,
+        animal_count=10,
+    )
+    agents_10 = build_environment(config_10, food=10, medicine=10).snapshot().agents
+    assert len(agents_10) == 10
+
+    config_15 = SimulationConfig(
+        veterinary_agents=5,
+        logistics_agents=5,
+        feeding_agents=5,
+        animal_count=10,
+    )
+    agents_15 = build_environment(config_15, food=10, medicine=10).snapshot().agents
+    assert len(agents_15) == 15
 
 
 def test_five_animals_create_five_complete_and_distinct_cases() -> None:
