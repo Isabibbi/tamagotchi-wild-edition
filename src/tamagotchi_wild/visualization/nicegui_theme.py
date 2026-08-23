@@ -66,6 +66,18 @@ body {
   border-color: #facc15;
   background: #fffbeb;
 }
+.staff-chip.staff-busy {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+.staff-chip.staff-waiting {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.staff-chip.staff-free {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
 .staff-person {
   position: relative;
   display: block;

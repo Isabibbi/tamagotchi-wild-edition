@@ -175,7 +175,7 @@ def render_floorplan_svg(
                 agent,
                 current,
                 previous,
-                active_areas.get(agent_id),
+                snapshot,
                 duration,
                 index,
             )
@@ -196,17 +196,7 @@ def render_floorplan_svg(
                 )
             )
 
-    chunks.extend(
-        (
-            '<g transform="translate(435 670)">'
-            '<circle cx="0" cy="0" r="6" fill="#16a34a"/>'
-            '<text x="13" y="4" class="floor-note">Active operator</text>'
-            '<circle cx="150" cy="0" r="6" fill="#94a3b8"/>'
-            '<text x="163" y="4" class="floor-note">Waiting operator</text>'
-            '</g>',
-            "</svg>",
-        )
-    )
+    chunks.append("</svg>")
     return "".join(chunks)
 
 
@@ -263,7 +253,7 @@ def _svg_definitions() -> str:
 
 def _render_hallway() -> str:
     return """
-    <g aria-label="Corridoio centrale">
+    <g aria-label="Central corridor">
       <path d="M18 238H1102V318H18Z M418 18H702V318H418Z" fill="url(#hallFloor)"/>
       <path d="M34 276H1086" stroke="#c1b9ab" stroke-width="2" stroke-dasharray="18 16" opacity=".6"/>
       <rect x="481" y="84" width="158" height="72" rx="12" fill="#7c573b" filter="url(#objectShadow)"/>
@@ -271,7 +261,7 @@ def _render_hallway() -> str:
       <rect x="516" y="54" width="88" height="48" rx="6" fill="#263747"/>
       <rect x="522" y="60" width="76" height="36" rx="3" fill="#bde3df"/>
       <path d="M545 139v20m30-20v20" stroke="#4b3425" stroke-width="7"/>
-      <text x="560" y="181" text-anchor="middle" class="tiny-label">POSTAZIONE STAFF</text>
+      <text x="560" y="181" text-anchor="middle" class="tiny-label">STAFF STATION</text>
       <g transform="translate(36 256)">
         <rect width="156" height="39" rx="18" fill="#ffffff" opacity=".8"/>
         <circle cx="21" cy="19" r="11" fill="#16a34a"/>
@@ -556,20 +546,63 @@ def _area_for_agent(snapshot: dict) -> dict[str, str]:
     }
 
 
+STATUS_COLORS = {
+    "free": "#16a34a",
+    "busy": "#dc2626",
+    "waiting": "#64748b",
+}
+STATUS_LABELS = {
+    "free": "Free",
+    "busy": "Busy",
+    "waiting": "Waiting",
+}
+
+
+def _operator_status(agent: dict, snapshot: dict) -> tuple[str, str, str]:
+    agent_id = agent["id"]
+    area_id = _area_for_agent(snapshot).get(agent_id)
+    is_carrying = any(
+        animal.get("carried_by") == agent_id
+        for animal in snapshot.get("animals", [])
+    )
+    if area_id is not None or is_carrying:
+        return "busy", STATUS_LABELS["busy"], STATUS_COLORS["busy"]
+
+    tasks = snapshot.get("tasks", [])
+    all_completed = bool(tasks) and all(t.get("status") == "completed" for t in tasks)
+    if all_completed:
+        return "free", STATUS_LABELS["free"], STATUS_COLORS["free"]
+
+    has_assigned_active = any(
+        t.get("assigned_to") == agent_id
+        and t.get("status") in ("assigned", "in_progress", "pending")
+        for t in tasks
+    )
+    if has_assigned_active:
+        return "waiting", STATUS_LABELS["waiting"], STATUS_COLORS["waiting"]
+
+    return "free", STATUS_LABELS["free"], STATUS_COLORS["free"]
+
+
 def _render_operator(
     agent: dict,
     current: tuple[float, float],
     previous: tuple[float, float],
-    area_id: str | None,
+    snapshot: dict,
     duration: float,
     index: int,
 ) -> str:
     agent_id = escape(agent["id"])
     role = agent["role"]
     color = ROLE_COLORS[role]
-    active = area_id is not None
+    area_id = _area_for_agent(snapshot).get(agent["id"])
+    status_key, status_label, status_color = _operator_status(agent, snapshot)
     moving = current != previous
-    css_class = "operator operator-walking" if moving else "operator"
+    css_class = (
+        f"operator operator-walking operator-{status_key}"
+        if moving
+        else f"operator operator-{status_key}"
+    )
     skin = ("#f2c6a0", "#c98e68", "#8c5a3c")[index % 3]
     hair = ("#38251c", "#6c432e", "#1f2937", "#a56a3a")[index % 4]
     animation = ""
@@ -580,20 +613,28 @@ def _render_operator(
             f'to="{current[0]:.1f} {current[1]:.1f}" dur="{duration:.2f}s" '
             'calcMode="spline" keySplines="0.22 1 0.36 1" fill="freeze"/>'
         )
-    active_halo = (
-        '<circle cx="0" cy="-28" r="30" fill="#22c55e" opacity=".16">'
-        '<animate attributeName="r" values="28;33;28" dur="1.4s" repeatCount="indefinite"/>'
-        '</circle>'
-        if active
-        else ""
-    )
+    if status_key == "busy":
+        status_halo = (
+            f'<circle cx="0" cy="-28" r="30" fill="{status_color}" opacity=".26">'
+            '<animate attributeName="r" values="28;35;28" dur="1.2s" repeatCount="indefinite"/>'
+            '</circle>'
+        )
+    elif status_key == "waiting":
+        status_halo = (
+            f'<circle cx="0" cy="-28" r="28" fill="{status_color}" opacity=".22"/>'
+        )
+    else:
+        status_halo = (
+            f'<circle cx="0" cy="-28" r="28" fill="{status_color}" opacity=".20"/>'
+        )
+
     accessory = _role_accessory(role)
-    state = f"Active · {area_id}" if active else "Waiting in corridor"
+    state_desc = f"{status_label} · {area_id}" if area_id else status_label
     return (
         f'<g class="{css_class}" data-agent-id="{agent_id}" '
         f'transform="translate({current[0]:.1f} {current[1]:.1f})">'
-        f'<title>{agent_id} · {escape(ROLE_LABELS[role])} · {escape(state)}</title>'
-        f'{animation}{active_halo}'
+        f'<title>{agent_id} · {escape(ROLE_LABELS[role])} · {escape(state_desc)}</title>'
+        f'{animation}{status_halo}'
         '<ellipse cx="0" cy="2" rx="19" ry="6" fill="#172033" opacity=".22"/>'
         '<g class="human-figure">'
         f'<g class="human-leg-left"><path d="M-7-24L-9-3" stroke="{color}" stroke-width="8" stroke-linecap="round"/><path d="M-9-3l-7 2" stroke="#263747" stroke-width="6" stroke-linecap="round"/></g>'
@@ -610,9 +651,10 @@ def _render_operator(
         f'{accessory}'
         '</g>'
         '<g transform="translate(-55 -108)">'
-        '<rect width="110" height="31" rx="9" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>'
-        f'<text x="55" y="13" text-anchor="middle" class="operator-name">{agent_id}</text>'
-        f'<text x="55" y="24" text-anchor="middle" class="operator-role">{escape(ROLE_LABELS[role])}</text>'
+        f'<rect width="110" height="31" rx="9" fill="#ffffff" stroke="{status_color}" stroke-width="2.5"/>'
+        f'<circle cx="12" cy="15.5" r="4" fill="{status_color}"/>'
+        f'<text x="58" y="13" text-anchor="middle" class="operator-name">{agent_id}</text>'
+        f'<text x="58" y="24" text-anchor="middle" class="operator-role">{escape(ROLE_LABELS[role])} · {status_label}</text>'
         '</g></g>'
     )
 
@@ -684,19 +726,25 @@ def _area_kind_at(snapshot: dict, position: dict) -> str | None:
 
 
 def render_operator_roster(snapshot: dict) -> str:
-    area_for_agent = _area_for_agent(snapshot)
     cards = []
     for agent in snapshot["agents"]:
-        area = area_for_agent.get(agent["id"])
-        active = area is not None
-        state = f"Active · {area}" if active else "Waiting"
-        state_class = "staff-active" if active else "staff-idle"
+        status_key, status_label, status_color = _operator_status(agent, snapshot)
+        area = _area_for_agent(snapshot).get(agent["id"])
+        if status_key == "busy":
+            state = f"Busy · {area}" if area else "Busy"
+            state_class = "staff-chip staff-active staff-busy"
+        elif status_key == "waiting":
+            state = "Waiting"
+            state_class = "staff-chip staff-idle staff-waiting"
+        else:
+            state = "Free"
+            state_class = "staff-chip staff-idle staff-free"
         cards.append(
             f'<div class="staff-chip {state_class}">'
             f'<span class="staff-person" style="--uniform:{ROLE_COLORS[agent["role"]]}">'
             '<i class="staff-head"></i><i class="staff-body"></i></span>'
             f'<span><strong>{escape(agent["id"])}</strong>'
-            f'<small>{escape(ROLE_LABELS[agent["role"]])} · {escape(state)}</small></span></div>'
+            f'<small>{escape(ROLE_LABELS[agent["role"]])} · <span style="color:{status_color};font-weight:700">{escape(state)}</span></small></span></div>'
         )
     return '<div class="staff-roster">' + "".join(cards) + "</div>"
 
@@ -718,7 +766,7 @@ def render_area_access(snapshot: dict) -> str:
         if access["area_id"] == "treatment-room":
             treatment = snapshot.get("treatment", {})
             detail = (
-                f'Pazienti {treatment.get("patient_count", 0)}/'
+                f'Patients {treatment.get("patient_count", 0)}/'
                 f'{treatment.get("patient_capacity", 3)} · {occupants}'
             )
         cards.append(

@@ -197,7 +197,7 @@ class RescueCenterDashboard:
         with ui.card().classes("cras-card w-full p-5 gap-4"):
             ui.label("Active staff").classes("text-lg font-black text-slate-900")
             ui.label(
-                "Operators in green are working; others are waiting in the corridor."
+                "Green = Free · Red = Busy · Gray = Waiting"
             ).classes("text-xs text-slate-500")
             self.staff_html = ui.html(
                 '<div class="text-slate-400 text-sm">Waiting for agents…</div>',

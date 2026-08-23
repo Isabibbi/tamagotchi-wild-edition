@@ -19,24 +19,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--gui",
         action="store_true",
-        help="apre la griglia live e la cronologia ricevute via SPADE",
+        help="open the live floorplan and timeline received via SPADE",
     )
     parser.add_argument(
         "--gui-delay",
         type=float,
         default=0.20,
-        help="secondi tra due aggiornamenti grafici (default: 0.20)",
+        help="seconds between graphic frame updates (default: 0.20)",
     )
     parser.add_argument(
         "--gui-port",
         type=int,
         default=8080,
-        help="porta locale della dashboard NiceGUI (default: 8080)",
+        help="local port for the NiceGUI dashboard (default: 8080)",
     )
     parser.add_argument(
         "--gui-no-browser",
         action="store_true",
-        help="avvia NiceGUI senza aprire automaticamente il browser",
+        help="start NiceGUI without opening the browser automatically",
     )
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
