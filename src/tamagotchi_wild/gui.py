@@ -311,8 +311,12 @@ class RescueCenterDashboard:
         )
         for index, entry in enumerate(entries):
             css_class = "timeline-entry"
-            if entry.lstrip().startswith("↳"):
+            is_subentry = entry.lstrip().startswith("↳")
+            is_agent_request = is_subentry and " requests " in entry
+            if is_subentry and not is_agent_request:
                 css_class += " text-slate-400"
+            if is_agent_request:
+                css_class += " timeline-agent-call"
             if (
                 rejected and index == len(entries) - 1
             ) or "on hold" in entry:

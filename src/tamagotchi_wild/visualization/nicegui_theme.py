@@ -171,6 +171,17 @@ body {
   color: #fde68a !important;
   font-weight: 700;
 }
+.event-log .timeline-agent-call {
+  margin: .28rem 0;
+  padding: .5rem .7rem;
+  border: 1px solid rgba(34, 197, 94, .35);
+  border-left: 4px solid #22c55e;
+  border-radius: .55rem;
+  background: rgba(21, 128, 61, .18);
+  color: #4ade80 !important;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
 @media (max-width: 900px) {
   .nicegui-content { padding: .75rem; }
   .room-access-grid { grid-template-columns: 1fr; }
