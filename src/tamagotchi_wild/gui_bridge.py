@@ -1,14 +1,23 @@
-
 from __future__ import annotations
 
+import argparse
 from collections import deque
-from multiprocessing.connection import Listener
+from multiprocessing.connection import Client, Listener
 import secrets
 import subprocess
 import sys
 import threading
 
 from tamagotchi_wild.config import SimulationConfig
+from tamagotchi_wild.simulation import run_simulation
+
+
+class ConnectionFrameSink:
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
+    def put(self, update) -> None:
+        self.connection.send(("frame", update))
 
 
 class SimulationBridge:
@@ -55,7 +64,7 @@ class SimulationBridge:
         command = [
             sys.executable,
             "-m",
-            "tamagotchi_wild.gui_worker",
+            "tamagotchi_wild.gui_bridge",
             "--host",
             host,
             "--port",
@@ -110,7 +119,6 @@ class SimulationBridge:
             self.result = error
 
     def frame_at(self, index: int):
-
         with self._state_lock:
             return self._frames[index] if index < len(self._frames) else None
 
@@ -179,3 +187,52 @@ class SimulationBridge:
             clean_line = line.strip()
             if clean_line:
                 self._stderr_lines.append(clean_line)
+
+
+def _build_worker_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="SPADE GUI Worker")
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", required=True, type=int)
+    parser.add_argument("--authkey", required=True)
+    parser.add_argument("--veterinary-agents", required=True, type=int)
+    parser.add_argument("--logistics-agents", required=True, type=int)
+    parser.add_argument("--feeding-agents", required=True, type=int)
+    parser.add_argument("--animals", required=True, type=int)
+    parser.add_argument("--food", type=int)
+    parser.add_argument("--medicine", type=int)
+    parser.add_argument("--timeout", required=True, type=float)
+    return parser
+
+
+def _worker_main() -> int:
+    args = _build_worker_parser().parse_args()
+    connection = Client(
+        (args.host, args.port),
+        family="AF_INET",
+        authkey=bytes.fromhex(args.authkey),
+    )
+    try:
+        config = SimulationConfig(
+            veterinary_agents=args.veterinary_agents,
+            logistics_agents=args.logistics_agents,
+            feeding_agents=args.feeding_agents,
+            animal_count=args.animals,
+        )
+        result = run_simulation(
+            config,
+            food=args.food,
+            medicine=args.medicine,
+            timeout_seconds=args.timeout,
+            visualization_queue=ConnectionFrameSink(connection),
+        )
+        connection.send(("result", result))
+        return 0 if result.success else 1
+    except Exception as exc:
+        connection.send(("error", f"{type(exc).__name__}: {exc}"))
+        return 1
+    finally:
+        connection.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(_worker_main())
