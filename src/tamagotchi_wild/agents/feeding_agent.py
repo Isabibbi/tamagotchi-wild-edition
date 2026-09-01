@@ -10,7 +10,7 @@ from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 from spade.template import Template
 
-from tamagotchi_wild.agents.bdi_base import ProjectBDIAgent, term_text
+from tamagotchi_wild.agents import ProjectBDIAgent, term_text
 from tamagotchi_wild.agents.environment_actions import (
     acquire_area,
     claim_task,
