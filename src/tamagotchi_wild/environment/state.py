@@ -23,12 +23,22 @@ from tamagotchi_wild.domain import (
     TaskStatus,
     TaskType,
 )
-from tamagotchi_wild.environment.errors import (
-    DuplicateEntityError,
-    EnvironmentError,
-    InvalidActionError,
-    UnknownEntityError,
-)
+
+
+class EnvironmentError(Exception):
+    pass
+
+
+class DuplicateEntityError(EnvironmentError):
+    pass
+
+
+class UnknownEntityError(EnvironmentError):
+    pass
+
+
+class InvalidActionError(EnvironmentError):
+    pass
 
 
 TREATMENT_PATIENT_CAPACITY = 3
