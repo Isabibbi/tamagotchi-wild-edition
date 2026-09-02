@@ -20,7 +20,7 @@ dev = [
 ]
 
 [project.scripts]
-tamagotchi-wild = "tamagotchi_wild.main:main"
+tamagotchi-wild = "tamagotchi_wild.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
