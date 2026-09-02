@@ -16,7 +16,7 @@ from tamagotchi_wild.visualization import (
     snapshot_metrics,
     timeline_entries,
 )
-from tamagotchi_wild.visualization.nicegui_theme import NICEGUI_CSS
+from tamagotchi_wild.visualization.nicegui_view import NICEGUI_CSS
 
 
 logger = logging.getLogger(__name__)
