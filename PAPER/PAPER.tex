@@ -18,14 +18,14 @@
 
 \title{Tamagotchi Wild Edition \\ Multi-Agent Care for Virtual Pets}
 \author{Isabella Tagliafico}
-\date{Settembre 2026}
+\date{September 2026}
 
 \begin{document}
 \maketitle
 \section{Introduction}
 This project stems from the work developed for the Natural Language Processing 
-course, reinterpreting the same domain ( a Wildlife Rescue Center CRAS)
-through a multi-agent lens. The facility is divided into four operational areas: 
+course, reinterpreting the same domain (a Wildlife Rescue Center CRAS)
+using a multi-agent architecture. The facility is divided into four operational areas: 
 Cage Area, Food Storage, Medical Storage, and Treatment Room. Inside it, 
 veterinarians, logistics staff, and feeding personnel must coordinate in real 
 time while respecting precise physical constraints. Each area admits at most 
@@ -60,16 +60,16 @@ In this phase, the following modules were written:
         \item \texttt{Position(x, y)}: integer coordinates on the grid;
         \item \texttt{Area}: rooms with their cell perimeters and respective capacities;
         \item \texttt{Animal}, \texttt{Cage}, \texttt{Bowl}: physical objects with unique identifiers;
-        \item \texttt{HealthStatus}: finite health states (\texttt{HEALTHY}, \texttt{HUNGRY}, \texttt{SICK}, \texttt{IN\_TREATMENT}, \texttt{TREATED}, \texttt{IN\_OUTBOUND\_TRANSPORT}, \texttt{IN\_RETURN\_TRANSPORT}).
+        \item \texttt{HealthStatus}: finite health states (\texttt{HEALTHY}, \texttt{HUNGRY}, \texttt{SICK}, \texttt{IN\_TREATMENT}, \texttt{TREATED}, \texttt{IN\_OUTBOUND\_TRANSPORT}, \texttt{IN\_RETURN\_TRANSPORT}, \texttt{READY\_FOR\_TRANSPORT}).
     \end{itemize}
     \item \textbf{\texttt{environment/state.py}}: The \texttt{EnvironmentState} class was created to model the physical space and the laws of the world. It maintains the ground truth of all entities: the positions of animals, coordinates of obstacles, bowl levels, and quantities of food and medicine stocks. Furthermore, it validates physical actions, verifying whether an action attempted by an operator is permitted according to the world rules. It is a passive component: it makes no autonomous decisions and possesses no goals, beliefs, or desires; in summary, it represents the simulated physical environment (the ground truth).
 \end{itemize}
 Unit tests were written to validate each world rule before moving on.
 \subsection{Phase 2: Agent Creation and Initial Workflow (Feeding)}
-In this phase, the first real SPADE agents were created, connected to the XMPP network and guided by BDI logical plans. Following the incremental methodology, it was decided not to implement the complete system immediately, but to validate execution starting from a single hungry animal with a single empty bowl. It is important to emphasize that agents represent the staff operators of the center, whereas animals are not agents but passive physical objects.
+In this phase, the first real SPADE agents were created, connected to the XMPP network and guided by BDI logical plans. Following the incremental methodology, it was decided not to implement the complete system immediately, but to validate execution starting from a single hungry animal with a single empty bowl. Notably, agents represent the staff operators of the center, whereas animals are not agents but passive physical objects.
 In this phase, the following entities were created:
 \begin{itemize}
-    \item 1 \texttt{EnvironmentAgent} (the referee of the map);
+    \item 1 \texttt{EnvironmentAgent} (the centralized environment arbiter);
     \item 1 \texttt{LogisticsAgent} (the coordinator);
     \item 1 \texttt{FeedingAgent} (the operational executor);
     \item 1 cage with 1 empty bowl and the storage room with food stocks.
@@ -101,9 +101,9 @@ Dedicated tests were also created in this phase to verify that all operations fu
 Phase 3 introduced higher complexity, involving the initial forms of cooperation between heterogeneous agents. An animal cannot move autonomously from the cage area to the treatment room; therefore, the intervention of an operator was required for transportation. Furthermore, for the administration of medical treatments, it was essential to introduce the Veterinary agent role.
 What was implemented in Phase 3:
 \begin{itemize}
-    \item \textbf{The \texttt{VeterinaryAgent} and its BDI plan (\texttt{veterinary.asl})}: the center's doctor was introduced, which receives the notification of a sick animal, requests transport from logistics, retrieves the medicine from the medical storage, and administers the treatment in the treatment room.
+    \item \textbf{The \texttt{VeterinaryAgent} and its BDI plan (\texttt{veterinary.asl})}: introduces the specialized medical agent, which receives notifications of sick animals, requests transport from logistics, retrieves medicine from medical storage, and administers treatment in the treatment room.
     \item \textbf{The transport role of the \texttt{LogisticsAgent}}: the logistics operator takes on the task of transporting the animal from the Cage Area to the Treatment Room and vice versa. It is triggered directly by the veterinary agent for both outbound and return transport.
-    \item \textbf{The animal finite state machine}: the animal does not heal instantaneously, but traverses a strict sequence of 6 states verified by the \texttt{EnvironmentAgent}:
+    \item \textbf{The animal finite state machine}: the animal does not heal instantaneously, but traverses a strict sequence of 6 physical states verified by the \texttt{EnvironmentAgent}:
     \begin{itemize}
         \item \texttt{SICK}: sick inside its cage (it cannot be treated there);
         \item \texttt{IN\_OUTBOUND\_TRANSPORT}: picked up by the logistics operator and traveling toward the treatment room (no other agent can interact with it);
@@ -140,13 +140,13 @@ In a distributed multi-agent system communicating via XMPP, tracking the progres
 The \texttt{VisualizationAgent} was therefore created, acting as a passive camera that receives state snapshots from the environment. The bridge module \texttt{gui\_bridge.py} was then implemented to transmit data to the NiceGUI web server, which renders the interactive SVG map in real time, displaying operator movements and status updates dynamically.
 
 \section{Domain Modeling and Physical Environment}
-Before describing the agents and their tasks, it is necessary to define the structure of the world and the physical rules that govern the rescue center. This part is written in pure Python and is completely independent of the network (SPADE/XMPP), BDI logic, and graphics.
+This section formalizes the spatial layout and the physical rules governing the rescue center. The domain model is implemented in pure Python, completely decoupled from network messaging (SPADE/XMPP), BDI reasoning, and graphical rendering.
 \subsection{Domain Entities (\texttt{domain/entities.py})}
 All physical elements of the center are modeled using immutable classes (\texttt{@dataclass(frozen=True)}), in order to prevent accidental modifications and ensure safety among concurrent tasks:
 \begin{itemize}
     \item \textbf{Space and Rooms}: The world is a grid of coordinates \texttt{Position(x, y)} of size $12 \times 8$, divided into four closed areas (\texttt{Area}): \textit{Food Storage}, \textit{Medical Storage}, \textit{Cage Area}, and \textit{Treatment Room}.
     \item \textbf{Objects and Resources}: Cages (\texttt{Cage}) and bowls (\texttt{Bowl}) are located at fixed points on the map. Stocks of food (\texttt{FoodStock}) and medicines (\texttt{MedicineStock}) keep track of the numerical quantities remaining in the storages.
-    \item \textbf{Animal Life Cycle (\texttt{HealthStatus})}: The sick animal does not heal instantly, but goes through a mandatory sequence of six states controlled by the environment:
+    \item \textbf{Animal Life Cycle (\texttt{HealthStatus})}: The domain enumeration defines eight states (including \texttt{HUNGRY} for feeding and \texttt{READY\_FOR\_TRANSPORT} for pre-transit staging), but the medical recovery cycle enforced by the environment follows a mandatory sequence of six physical states:
 \begin{center}
 \small
 \texttt{SICK} $\rightarrow$ \texttt{IN\_OUTBOUND\_TRANSPORT} $\rightarrow$ \texttt{IN\_TREATMENT} \\
@@ -156,7 +156,7 @@ $\rightarrow$ \texttt{TREATED} $\rightarrow$ \texttt{IN\_RETURN\_TRANSPORT} $\ri
 \subsection{Actions and Contracts (\texttt{domain/actions.py})}
 Agents cannot directly touch the world data: to do anything they must send a formal request:
 \begin{itemize}
-    \item \textbf{Action Types (\texttt{ActionType})}: List of all permitted operations, such as reserving a task (\texttt{CLAIM\_TASK}), entering or leaving a room (\texttt{ACQUIRE\_AREA}, \texttt{RELEASE\_AREA}), taking resources (\texttt{TAKE\_FOOD}, \texttt{TAKE\_MEDICINE}), filling bowls (\texttt{FILL\_BOWL}), and treating the animal (\texttt{TREAT\_ANIMAL}).
+    \item \textbf{Action Types (\texttt{ActionType})}: An enumeration of 15 permitted domain operations, including reserving tasks (\texttt{CLAIM\_TASK}), entering or leaving rooms (\texttt{ACQUIRE\_AREA}, \texttt{RELEASE\_AREA}), managing resources (\texttt{TAKE\_FOOD}, \texttt{TAKE\_MEDICINE}, \texttt{FILL\_BOWL}), and executing medical stages (\texttt{PICKUP\_SICK\_ANIMAL}, \texttt{DELIVER\_TO\_TREATMENT}, \texttt{TREAT\_ANIMAL}, \texttt{PICKUP\_TREATED\_ANIMAL}, \texttt{RETURN\_ANIMAL\_TO\_CAGE}).
     \item \textbf{Commands and Outcomes (\texttt{ActionCommand} and \texttt{ActionResult})}: For each requested action, the environment responds atomically stating whether it was accepted (\texttt{accepted = True}) or rejected (\texttt{accepted = False}), always specifying the reason for rejection.
 \end{itemize}
 \subsection{The Authoritative Environment (\texttt{environment/state.py})}
@@ -245,7 +245,7 @@ The FIPA standard specifies various communicative performatives (including \text
     \item \textbf{\texttt{inform}}: notifies the agent of the successful application of the action in the real world.
     \item \textbf{\texttt{failure}}: notifies the agent of the rejection of the attempted action (for instance, when requested resources are exhausted or room access is saturated).
 \end{itemize}
-The \texttt{EnvironmentAgent} does not make use of the \textbf{\texttt{agree}} performative. Indeed, an \texttt{agree} message expresses the formal acceptance of a task that will require time to complete (a deferred commitment over time, typical of operators such as the \texttt{FeedingAgent}). Conversely, the Environment's action is atomic and instantaneous: validation and state transition occur immediately, making an intermediate execution promise meaningless.
+The \texttt{EnvironmentAgent} does not use the \textbf{\texttt{agree}} performative. An \texttt{agree} message denotes formal acceptance of a task requiring deferred execution over time, as observed in operational agents like the \texttt{FeedingAgent}. In contrast, the environment validates and executes actions atomically and instantaneously, making an intermediate execution promise redundant.
 \subsubsection{Sensory Perception Triggers}
 In addition to passive request handling, the \texttt{EnvironmentAgent} acts proactively as a sensor for the facility through two methods dedicated to signaling hunger and animal illness:
 \begin{lstlisting}[language=Python, caption={Perception publishing methods in \texttt{EnvironmentAgent}}]
@@ -328,7 +328,7 @@ The life cycle of each feeding task is carried out in six linear steps:
 \subsubsection{Tier Separation: Beliefs File (.asl) vs. Python File (.py)}
 To avoid confusion between the theoretical plan and practical execution, the agent is clearly separated into two files:
 \paragraph{The Beliefs File: \texttt{src/tamagotchi\_wild/bdi/feeding.asl}}
-What it does: It is the declarative logical mind of the agent. It performs no calculations or network transfers: it limits itself to monitoring beliefs and adopting goals and intentions.
+This component encapsulates the declarative deliberative layer of the agent. It performs no numerical computation or network I/O; its role is confined to managing the belief base, adopting goals, and executing plans.
 \begin{lstlisting}
 !boot.
 +!boot <-
@@ -492,7 +492,7 @@ The internal architecture is organized into five components:
 \subsubsection{Role and Nature of the Agent}
 The \texttt{VeterinaryAgent} is the medical officer of the center, responsible for diagnosis, pharmacological prescription, and the administration of therapies to sick animals.
 Like the \texttt{FeedingAgent} and the \texttt{LogisticsAgent}, it adopts a two-layer hybrid architecture: a symbolic deliberative BDI layer and an operational, executive Python/SPADE layer. Unlike the logistics agent, it moves strictly and exclusively between the treatment room and the medical storage, where medicines are collected and animals are treated.
-\subsubsection{Whom the Agent Communicates With}
+\subsubsection{Interaction Interfaces}
 The agent communicates with two entities:
 \begin{itemize}
     \item \textbf{With the \texttt{EnvironmentAgent}:}
@@ -561,7 +561,7 @@ The internal architecture is organized into four operational components:
 \subsection{VisualizationAgent}
 \subsubsection{Role and Nature of the Agent}
 Acts as a read-only bridge between the SPADE simulation and the NiceGUI dashboard. \textbf{It is not a BDI agent} (it makes no decisions and has no \texttt{.asl} file): it is a purely reactive SPADE agent that projects the grid state to the screen without modifying the environment.
-\subsubsection{Whom the Agent Communicates With}
+\subsubsection{Interaction Interfaces}
 \begin{itemize}
     \item \textbf{\texttt{EnvironmentAgent}:} Receives periodic state snapshots via XMPP under the \texttt{cras.visualization} ontology.
     \item \textbf{NiceGUI Dashboard:} Forwards received frames to the GUI process via a local thread-safe queue (\texttt{frame\_queue}).
@@ -590,10 +590,12 @@ Each message has two distinct layers:
 \end{itemize}
 \begin{lstlisting}[language={}]
 {
-  "task_id":   "medical_001",
-  "animal_id": "animal_001",
-  "cage_id":   "cage_01",
-  "direction": "outbound"
+    "schema_version": 1,
+    "task_id":   "medical_001",
+    "animal_id": "animal_001",
+    "cage_id":   "cage_01",
+    "direction": "outbound",
+    "event":     "transport_animal"
 }
 \end{lstlisting}
 with FIPA header \texttt{performative="request"}, \texttt{ontology="cras.transport"}, \texttt{conversation-id="medical\_001"}. If the payload received on the other side does not conform to the expected schema, a \texttt{MessageContractError} is raised and the message is discarded before reaching the BDI reasoning layer.
@@ -659,7 +661,7 @@ The first agent to submit the request for a \texttt{(task\_id, phase)} pair
 (e.g., \texttt{(medical\_001, medical\_coordination)}) acquires the lock, 
 recording its own identifier in the internal \texttt{\_task\_claims} structure. 
 Any subsequent agent attempting to claim the same phase receives an 
-\texttt{accepted=False} response with an accompanying \texttt{refuse} message, 
+\texttt{accepted=False} response via the \texttt{failure} performative, 
 abandoning the task without retrying. The mechanism also incorporates a 
 consistency check between the requesting agent's role and the claimed phase: 
 an agent with role \texttt{FEEDING} cannot acquire a 
@@ -695,7 +697,7 @@ environment that its task is complete, removing its own ID from
 \subsection{Non-Blocking Retry Loop}
 When an \texttt{ACQUIRE\_AREA} request is rejected, the agent neither blocks 
 nor terminates execution. The auxiliary function \texttt{acquire\_area}, 
-defined in \texttt{environment\_actions.py}, implements an asynchronous 
+defined in \texttt{src/tamagotchi\_wild/agents/environment\_actions.py}, implements an asynchronous 
 polling loop with a deadline:
 \begin{lstlisting}[language=Python]
 deadline = asyncio.get_running_loop().time() + behaviour.agent.timeout_seconds
