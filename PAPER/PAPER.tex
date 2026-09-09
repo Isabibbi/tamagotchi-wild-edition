@@ -2,6 +2,12 @@
 \usepackage{graphicx} % Required for inserting images
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage[hyphens]{url}
+\usepackage{microtype}
+
+\emergencystretch 3em
+\let\oldtextunderscore\_
+\renewcommand{\_}{\oldtextunderscore\allowbreak}
 
 \lstset{
     language=Python,
@@ -159,7 +165,7 @@ Agents cannot directly touch the world data: to do anything they must send a for
     \item \textbf{Action Types (\texttt{ActionType})}: An enumeration of 15 permitted domain operations, including reserving tasks (\texttt{CLAIM\_TASK}), entering or leaving rooms (\texttt{ACQUIRE\_AREA}, \texttt{RELEASE\_AREA}), managing resources (\texttt{TAKE\_FOOD}, \texttt{TAKE\_MEDICINE}, \texttt{FILL\_BOWL}), and executing medical stages (\texttt{PICKUP\_SICK\_ANIMAL}, \texttt{DELIVER\_TO\_TREATMENT}, \texttt{TREAT\_ANIMAL}, \texttt{PICKUP\_TREATED\_ANIMAL}, \texttt{RETURN\_ANIMAL\_TO\_CAGE}).
     \item \textbf{Commands and Outcomes (\texttt{ActionCommand} and \texttt{ActionResult})}: For each requested action, the environment responds atomically stating whether it was accepted (\texttt{accepted = True}) or rejected (\texttt{accepted = False}), always specifying the reason for rejection.
 \end{itemize}
-\subsection{The Authoritative Environment (\texttt{environment/state.py})}
+\subsection{Authoritative Environment (\texttt{environment/state.py})}
 The \texttt{EnvironmentState} class is the only true custodian of the state of the world (\textit{ground truth}). It does not reason and makes no decisions: it only checks that physical rules are respected before executing any modification:
 \begin{itemize}
     \item \textbf{Room Capacity Rule}: In each room there can be at most two operators at the same time. If a room is already full, the environment rejects entry and the agent waits outside until a spot is freed.
@@ -347,7 +353,7 @@ This component encapsulates the declarative deliberative layer of the agent. It 
     \item \textbf{Reaction to event}: acquiring the \texttt{+feeding\_task} belief triggers the \texttt{!complete\_feeding} plan, which delegates the physical action to the Python module by calling \texttt{.execute\_feeding};
     \item \textbf{Conclusion}: the returning beliefs \texttt{+feeding\_succeeded} or \texttt{+feeding\_failed} formally record the final outcome in the agent's mind.
 \end{itemize}
-\paragraph{The Python Executive File: \texttt{src/tamagotchi\_wild/agents/feeding\_agent.py}}
+\paragraph{The Python Executive File: \texttt{feeding\_agent.py}}
 The \texttt{feeding\_agent.py} module constitutes solely the executive component of the agent: it makes no autonomous decisions, but translates what the BDI plan has established into physical actions and network messages.
 The material execution is encapsulated in the \texttt{\_execute} method of the \texttt{ExecuteFeeding} class:
 \begin{lstlisting}
@@ -475,7 +481,7 @@ Unlike the \texttt{FeedingAgent} (which holds a single belief for a task it exec
     \item \textbf{Transport execution}: transforms the Veterinarian's request into the physical action of animal movement;
     \item \textbf{Conclusion}: records the final outcome in agent memory.
 \end{itemize}
-\paragraph{The Python Executive File: \texttt{src/tamagotchi\_wild/agents/logistics\_agent.py}}
+\paragraph{The Python Executive File: \texttt{logistics\_agent.py}}
 The Python class \textbf{\texttt{LogisticsAgent}} manages the dual operational role of the agent: dispatching feeding tasks and physically moving animals in the field.
 The internal architecture is organized into five components:
 \begin{itemize}
@@ -548,19 +554,19 @@ It represents the clinical mind of the agent: it paces the stages of care accord
     \item \textbf{Return Phase}: The completion belief \texttt{treatment\_succeeded} generates the repatriation goal \texttt{!ensure\_return}, which reuses the transport custom action and the corresponding behaviour \textbf{\texttt{RequestTransport}} to return the animal to its cage.
     \item \textbf{Conclusion}: The final state beliefs \texttt{animal\_returned} (success) or \texttt{medical\_failed} (failure/timeout) trigger the action \texttt{.finish\_medical\_workflow}, recording the formal outcome and notifying task closure by unblocking the Python event \texttt{workflow\_done}.
 \end{enumerate}
-\paragraph{B. The Python Executive File: \texttt{src/tamagotchi\_wild/agents/veterinary\_agent.py}}
+\paragraph{The Python Executive File: \texttt{veterinary\_agent.py}}
 The Python class \textbf{\texttt{VeterinaryAgent}} serves as the operational layer: it implements asynchronous network communication (SPADE/XMPP) and environment interaction, translating symbolic BDI plans into concrete actions.
 The internal architecture is organized into four operational components:
 \begin{itemize}
     \item \textbf{Reception and Task Claim} (\textbf{\texttt{PerceptionReceiver}}): Intercepts the sick animal, reserves the task to avoid conflicts with other veterinarians, and passes the belief \texttt{sick\_animal} to the BDI layer.
-    \item \textbf{Transport Request} (\textbf{\texttt{RequestTransport}}): Requests the \textbf{\texttt{LogisticsAgent}} to move the animal.
+    \item \textbf{Transport Request} (\texttt{RequestTransport}): Requests transport of the animal from \texttt{LogisticsAgent}.
     \item \textbf{Medical Treatment} (\textbf{\texttt{ExecuteTreatment}}): Retrieves medication, treats the animal (one patient at a time via \texttt{treatment\_lock}), and notifies the BDI layer that the treatment was successful.
     \item \textbf{BDI Binding} (\textbf{\texttt{add\_role\_actions}}): Acts as a bridge, connecting actions defined in the \texttt{.asl} file to the Python code that executes them.
 \end{itemize}
 
-\subsection{VisualizationAgent}
+\subsection{VisualizationAgent}\label{subsec:visualization_agent}
 \subsubsection{Role and Nature of the Agent}
-Acts as a read-only bridge between the SPADE simulation and the NiceGUI dashboard. \textbf{It is not a BDI agent} (it makes no decisions and has no \texttt{.asl} file): it is a purely reactive SPADE agent that projects the grid state to the screen without modifying the environment.
+Acts as a read-only bridge between the SPADE simulation and the NiceGUI dashboard. \textbf{It is not a BDI agent} (it makes no decisions and has no \texttt{.asl} file): it is a purely reactive SPADE agent that projects the grid state to the screen without modifying the environment. For a comprehensive discussion of the web visualization subsystem, the NiceGUI frontend, and the inter-process communication bridge, refer to Section~\ref{sec:visualization_subsystem}.
 \subsubsection{Interaction Interfaces}
 \begin{itemize}
     \item \textbf{\texttt{EnvironmentAgent}:} Receives periodic state snapshots via XMPP under the \texttt{cras.visualization} ontology.
@@ -572,7 +578,7 @@ Acts as a read-only bridge between the SPADE simulation and the NiceGUI dashboar
     \item \textbf{Validation}: Deserializes the JSON payload into a \texttt{VisualizationUpdate} data model;
     \item \textbf{Dispatch}: Enqueues the frame into \texttt{frame\_queue} for graphical rendering.
 \end{enumerate}
-\subsubsection{Python Implementation (\texttt{src/tamagotchi\_wild/agents/visualization\_agent.py})}
+\subsubsection{Python Implementation (\texttt{visualization\_agent.py})}
 Lacking a BDI deliberative layer, it is implemented entirely in a single Python file:
 \begin{itemize}
     \item \textbf{\texttt{VisualizationAgent}:} Configures message reception templates for visualization frames and signals initialization with the \texttt{ready} event.
@@ -727,4 +733,39 @@ a deadlock. With \texttt{await}, control is yielded to the event loop,
 preserving the system.
 
 
+\section{Graphical Visualization Subsystem}\label{sec:visualization_subsystem}
+Real-time observability of the multi-agent system is provided by a dedicated web dashboard strictly decoupled from the core simulation runtime. The visualization architecture is organized into four complementary components:
+
+\subsection{The Web Presentation Framework (NiceGUI)}
+For the presentation tier, \textbf{NiceGUI} was adopted---a Python web framework built on top of FastAPI and Vue.js. This choice was driven by the objective of maintaining the entire codebase within the Python ecosystem, while ensuring:
+\begin{itemize}
+    \item \textbf{Real-Time Synchronization}: state updates are pushed through bidirectional, persistent \textbf{WebSocket} connections, eliminating HTTP polling overhead;
+    \item \textbf{Native Vector Rendering}: the interface directly manipulates \textbf{SVG} elements, enabling dynamic rendering of the grid floor plan without external JavaScript build toolchains.
+\end{itemize}
+
+\subsection{Inter-Process Communication and Decoupling (\texttt{gui\_bridge.py})}
+The asynchronous event loop of SPADE (bound to XMPP network I/O) features concurrency constraints incompatible with the NiceGUI web server runtime. Running both subsystems within the same event loop would induce severe thread contention, where frontend rendering latency or browser disconnections could stall agent asynchronous tasks.
+To guarantee strict \textbf{execution domain isolation}, \texttt{gui\_bridge.py} establishes an \textbf{Inter-Process Communication (IPC)} bridge:
+\begin{itemize}
+    \item Executes the multi-agent simulation in a dedicated, isolated process;
+    \item Encapsulates world state snapshots emitted by the \texttt{VisualizationAgent} and streams them across an authenticated local socket connection (\texttt{multiprocessing.connection});
+    \item Enforces fault tolerance: client rendering delays or browser reconnections cannot stall state transitions within the multi-agent environment.
+\end{itemize}
+
+\subsection{Graphical Presentation Layer (\texttt{visualization/nicegui\_view.py})}
+This module implements the user-facing web frontend, translating state payloads delivered by the bridge into interactive graphical components:
+\begin{itemize}
+    \item \textbf{Interactive SVG Floor Plan}: geometrically renders the $12 \times 8$ grid, color-coding the four operational areas and static objects (bowls, medical examination stations);
+    \item \textbf{Dynamic Entity Tracking}: tracks operator coordinates in real time and projects animal clinical status and species via dedicated icons;
+    \item \textbf{Event and Diagnostic Timeline}: chronologically logs physical actions accepted or rejected by the environment;
+    \item \textbf{Metrics and Control Panel}: exposes playback speed selection, simulation visualization pause/resume controls, and aggregated counters for patient health and inventory stocks.
+\end{itemize}
+
+\subsection{Role of the \texttt{VisualizationAgent} within the Pipeline}
+Within the SPADE multi-agent network, the \texttt{VisualizationAgent} (introduced in Section~\ref{subsec:visualization_agent}) operates strictly as a passive sensor: devoid of a BDI deliberative engine or \texttt{.asl} plans, it listens for periodic broadcast messages emitted by the \texttt{EnvironmentAgent} under the \texttt{cras.visualization} ontology, validates schema compliance (\texttt{VisualizationUpdate}), and delegates frame forwarding to the IPC bridge.
+
+\paragraph{Methodological Note on Tooling}
+The architectural design of the multi-process asynchronous bridge and the dynamic vector SVG layout were developed with the assistance of Large Language Models (LLMs) used as a pair-programming and rapid-prototyping tool for the interface scaffolding.
+
 \end{document}
+
