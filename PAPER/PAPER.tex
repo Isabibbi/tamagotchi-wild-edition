@@ -734,38 +734,189 @@ preserving the system.
 
 
 \section{Graphical Visualization Subsystem}\label{sec:visualization_subsystem}
-Real-time observability of the multi-agent system is provided by a dedicated web dashboard strictly decoupled from the core simulation runtime. The visualization architecture is organized into four complementary components:
+\textbf{Objective:} Allow the user to observe on screen and in real time the evolution of the rescue center (operator movements, animal health status, room capacity), ensuring that the graphical interface neither slows down nor blocks the agent simulation.
 
-\subsection{The Web Presentation Framework (NiceGUI)}
-For the presentation tier, \textbf{NiceGUI} was adopted---a Python web framework built on top of FastAPI and Vue.js. This choice was driven by the objective of maintaining the entire codebase within the Python ecosystem, while ensuring:
+The architecture is structured into five components:
+
+\subsection{Why NiceGUI Was Chosen}
+Instead of building a traditional web application with HTML/JavaScript or React (which would have required two separate development environments and complex build toolchains), \textbf{NiceGUI} was adopted:
 \begin{itemize}
-    \item \textbf{Real-Time Synchronization}: state updates are pushed through bidirectional, persistent \textbf{WebSocket} connections, eliminating HTTP polling overhead;
-    \item \textbf{Native Vector Rendering}: the interface directly manipulates \textbf{SVG} elements, enabling dynamic rendering of the grid floor plan without external JavaScript build toolchains.
+    \item \textbf{Unified Python Stack}: the graphical interface and visualization logic are written entirely in Python, consistently with the rest of the project.
+    \item \textbf{Real-Time Updates}: simulation state is sent to the browser over a continuous connection, without having to reload the page or continuously poll the server.
+    \item \textbf{Native Vector Graphics}: the clinic floor plan is drawn as scalable vector graphics (SVG), making it lightweight, smooth, and scalable across any resolution.
 \end{itemize}
 
-\subsection{Inter-Process Communication and Decoupling (\texttt{gui\_bridge.py})}
-The asynchronous event loop of SPADE (bound to XMPP network I/O) features concurrency constraints incompatible with the NiceGUI web server runtime. Running both subsystems within the same event loop would induce severe thread contention, where frontend rendering latency or browser disconnections could stall agent asynchronous tasks.
-To guarantee strict \textbf{execution domain isolation}, \texttt{gui\_bridge.py} establishes an \textbf{Inter-Process Communication (IPC)} bridge:
+\subsection{Why the Simulation and Graphics Run in Separate Processes (\texttt{gui\_bridge.py})}
+SPADE (the agent platform) and NiceGUI (the web server) each have their own asynchronous engine. Placing them in the same process would have introduced a critical issue:
 \begin{itemize}
-    \item Executes the multi-agent simulation in a dedicated, isolated process;
-    \item Encapsulates world state snapshots emitted by the \texttt{VisualizationAgent} and streams them across an authenticated local socket connection (\texttt{multiprocessing.connection});
-    \item Enforces fault tolerance: client rendering delays or browser reconnections cannot stall state transitions within the multi-agent environment.
+    \item If the web browser slows down during rendering or the user reloads the page, \textbf{the entire agent cycle would freeze}, halting the simulation and network communications.
+    \item For this reason, the multi-agent simulation and the graphical dashboard run in \textbf{two distinct and independent system processes}.
+    \item The file \texttt{gui\_bridge.py} acts as a bridge: it periodically collects snapshots of the world and forwards them to the web window via a secure local channel. If the web interface closes or hangs, the simulation continues running normally.
 \end{itemize}
 
-\subsection{Graphical Presentation Layer (\texttt{visualization/nicegui\_view.py})}
-This module implements the user-facing web frontend, translating state payloads delivered by the bridge into interactive graphical components:
+\subsection{How the Interface Is Organized (\texttt{visualization/\allowbreak nicegui\_view.py})}
+This module manages what the user sees and controls in the browser:
 \begin{itemize}
-    \item \textbf{Interactive SVG Floor Plan}: geometrically renders the $12 \times 8$ grid, color-coding the four operational areas and static objects (bowls, medical examination stations);
-    \item \textbf{Dynamic Entity Tracking}: tracks operator coordinates in real time and projects animal clinical status and species via dedicated icons;
-    \item \textbf{Event and Diagnostic Timeline}: chronologically logs physical actions accepted or rejected by the environment;
-    \item \textbf{Metrics and Control Panel}: exposes playback speed selection, simulation visualization pause/resume controls, and aggregated counters for patient health and inventory stocks.
+    \item \textbf{Center Map ($12 \times 8$)}: renders the grid divided into the 4 operational rooms (colored distinctly), along with bowls and the examination table.
+    \item \textbf{Operator and Animal Tracking}: displays the real-time positions of veterinarians and logistics staff, associating each animal with an icon and color corresponding to its status (healthy, hungry, sick, in treatment).
+    \item \textbf{Event Log}: a textual history recording every action approved or rejected by the environment (e.g., room entries, treatment administration).
+    \item \textbf{Control Panel and Counters}: buttons to pause or resume visualization, a menu to adjust playback speed, and numeric summaries of inventory stocks and animal health.
 \end{itemize}
 
-\subsection{Role of the \texttt{VisualizationAgent} within the Pipeline}
-Within the SPADE multi-agent network, the \texttt{VisualizationAgent} (introduced in Section~\ref{subsec:visualization_agent}) operates strictly as a passive sensor: devoid of a BDI deliberative engine or \texttt{.asl} plans, it listens for periodic broadcast messages emitted by the \texttt{EnvironmentAgent} under the \texttt{cras.visualization} ontology, validates schema compliance (\texttt{VisualizationUpdate}), and delegates frame forwarding to the IPC bridge.
+\subsection{Role of the Visualization Agent (\texttt{VisualizationAgent})}
+Within the SPADE network, this agent operates solely as a "passive antenna":
+\begin{itemize}
+    \item It has no deliberative plans, does not use BDI, and takes no initiative in the center.
+    \item It simply receives periodic state messages sent by the environment, validates that data is correct, and forwards it to the bridge (\texttt{gui\_bridge.py}) so it can be displayed on screen.
+\end{itemize}
 
-\paragraph{Methodological Note on Tooling}
-The architectural design of the multi-process asynchronous bridge and the dynamic vector SVG layout were developed with the assistance of Large Language Models (LLMs) used as a pair-programming and rapid-prototyping tool for the interface scaffolding.
+\subsection{Event Translation and Formatting (\texttt{visualization/\allowbreak timeline.py})}
+The final component is \texttt{timeline.py}, which translates raw simulation events into human-readable sentences for the event log:
+\begin{enumerate}
+    \item \textbf{Translation of Technical Data}: The environment produces low-level event dictionaries such as \texttt{\{"action": "acquire\_area",} \texttt{"actor\_id": "vet\_01",} \texttt{"target\_id": "treatment-room"\}} or rejections such as \texttt{\{"action": "action\_rejected",} \texttt{"detail": "area is at capacity"\}}. The module transforms them into clear messages:
+    \begin{itemize}
+        \item \texttt{\#012} $\cdot$ \textit{Vet 1 enters into the treatment room.}
+        \item \texttt{\#013} $\cdot$ \textit{Vet 1 cannot enter: treatment room is at capacity.}
+    \end{itemize}
+    \item \textbf{Sequence Numbering and Visual Hierarchy}: It assigns sequential numbers (\texttt{\#001}, \texttt{\#002}) to physical actions executed on the environment, and prefixes an indentation arrow ($\hookrightarrow$) to internal communications between operators (e.g., \texttt{$\hookrightarrow$ Logistics 1 requests refill of Food Bowl 1}), enabling the graphical interface to color-code different categories of events.
+\end{enumerate}
+
+\paragraph{Methodological Note}
+This part of the project was also carried out with the assistance of an LLM to help assemble the graphical component.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{cras_visualization_dashboard.png}
+    \caption{Screenshot of the simulation.}
+    \label{fig:visualization_dashboard}
+\end{figure}
+
+\section{How to Run the Code}
+The system supports two execution modes configurable from the terminal via the main module \texttt{tamagotchi\_wild}.
+
+\subsection{Default Configuration}
+If the commands are started without additional parameters, the system automatically loads the predefined baseline configuration:
+\begin{itemize}
+    \item 5 animals (\texttt{--animals 5})
+    \item 7 total operators distributed into:
+    \begin{itemize}
+        \item 2 veterinarians (\texttt{--veterinary-agents 2})
+        \item 3 logistics operators (\texttt{--logistics-agents 3})
+        \item 2 feeding operators (\texttt{--feeding-agents 2})
+    \end{itemize}
+    \item 60 seconds of timeout (\texttt{--timeout 60.0}) and food/medicine stocks automatically calculated to cover requirements. Fundamental to ensure that if an agent gets stuck in a loop, the simulation terminates.
+\end{itemize}
+
+\subsection{How to Run}
+
+\subsubsection{Graphical Mode}
+Executes the multi-agent simulation and opens the web browser in real time (with default values: 5 animals and 7 operators):
+\begin{lstlisting}[language={}]
+python -m tamagotchi_wild --gui
+\end{lstlisting}
+
+\subsubsection{Headless Mode}
+Executes the simulation at maximum speed without a graphical interface:
+\begin{lstlisting}[language={}]
+python -m tamagotchi_wild
+\end{lstlisting}
+
+\subsubsection{Exporting Results to JSON}
+Prints the structured summary of tasks to the terminal:
+\begin{lstlisting}[language={}]
+python -m tamagotchi_wild --json > risultato.json
+\end{lstlisting}
+
+\subsection{Custom Parameterization}
+If one wishes to customize the parameters, it is possible to override them. At runtime, one can change the values of:
+\begin{itemize}
+    \item number of animals
+    \item number of operators
+    \item food and medicine stocks
+\end{itemize}
+It is also possible to control the GUI; for instance, with \texttt{--gui-port} it is possible to modify the local port of the web server, which defaults to 8080.
+
+\subsubsection{Example with Explicitly Declared Parameters}
+\begin{lstlisting}[language={}]
+python -m tamagotchi_wild --gui --animals 15 --veterinary-agents 3 --logistics-agents 4 --feeding-agents 3 --timeout 90
+\end{lstlisting}
+
+\section{Experimental Results, Anomalies, and Future Work}
+
+\subsection{Simulation Results and Graphical Inspection}
+In ordinary tests, the system proves stable and scales successfully with an increasing number of animals (tested up to 40) and operators (tested up to 15). The greatest complexity lies in managing concurrent access to physical spaces and coordination via FIPA-ACL messages.
+
+The NiceGUI interface provides a complete overview of the operational state:
+
+\paragraph{Photo -- Interactive Floor Plan of the Rescue Centre}
+Represents the $12 \times 8$ grid divided into the 4 physical areas, tracking in real time the position of operators, cages, and the examination table.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{foto1_rescue_centre.png}
+    \label{fig:foto1_rescue_centre}
+\end{figure}
+
+\paragraph{Photo 2 -- Live Timeline (Event Log)}
+Tracks in chronological order the physical actions validated by the environment (numbered with a \texttt{\#} prefix) and the exchange of FIPA-ACL messages between agents (identified by the arrow prefix $\hookrightarrow$ and a dedicated background).
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{foto2_live_timeline.png}
+    \label{fig:foto2_live_timeline}
+\end{figure}
+
+\paragraph{Photo 3 -- Active Staff}
+Highlights the status of each agent with color coding: green (\textit{Free}), red (\textit{Busy} with occupied room), and gray (\textit{Waiting}).
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{foto3_active_staff.png}
+    \label{fig:foto3_active_staff}
+\end{figure}
+
+\paragraph{Photo 4 -- Area Capacity}
+Monitors instantaneous occupancy with respect to the physical limit of 2 operators per room.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{foto4_area_capacity.png}
+    \label{fig:foto4_area_capacity}
+\end{figure}
+
+\paragraph{Photo 5 -- Metrics and Remaining Stocks}
+Displays overall progress (healthy patients, filled bowls, completed therapies) and the residual level of inventory stocks in storage.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{foto5_metrics_stocks.png}
+    \label{fig:foto5_metrics_stocks}
+\end{figure}
+
+\subsection{Detected Anomalies and Deadlock Scenarios}
+
+\subsubsection{First Scenario  -- Asymmetric Resources}
+\begin{lstlisting}[language={}]
+.\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5 --food 2 --medicine 1 --timeout 60.0
+\end{lstlisting}
+\textbf{Dynamics:} The first 3 patients fully occupy the beds in the Treatment Room (maximum capacity: 3). The only available medicine treats the first patient, who is returned to the cage, freeing a bed that is immediately occupied by another animal.
+
+\noindent\textbf{Deadlock:} The animals remaining on the table can neither be treated nor discharged. For the animals still in cages, the logistics operator receives the transport order but finds the treatment room saturated (\textit{treatment room patient capacity is full}). The agent enters an infinite retry loop: it accesses the Cage Area, ascertains the impossibility of delivering the patient, releases the room, and retries endlessly until the 60-second timeout occurs.
+
+\subsubsection{Second Scenario -- Total Absence of Resources}
+\begin{lstlisting}[language={}]
+.\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5 --food 0 --medicine 0 --timeout 60.0
+\end{lstlisting}
+\textbf{Dynamics:} With zero stocks, the feeding operators declare failure and terminate their activities. On the medical side, the first 3 animals are placed on the examination beds. The veterinarians immediately declare \texttt{failure} due to lack of medicine, but do not release the animals.
+
+\noindent\textbf{Two-agent deadlock:} The 3 beds remain permanently occupied. \textbf{Two logistics operators end up simultaneously in an infinite loop of accessing the Cage Area}, continually attempting to retrieve the 4th and 5th animals without being able to deliver them to the saturated treatment room, until terminated by the global timeout.
+
+\subsubsection{Primary Root Cause of All Deadlocks}
+All observed deadlocks are traceable to a single cause: \textbf{the total and definitive capacity saturation of the beds in the treatment room}.
+
+In the BDI plan of the veterinarian (\texttt{veterinary.asl}), the return transport request (\texttt{request\_medical\_transport(..., return)}) is triggered exclusively upon therapeutic success (\texttt{treatment\_succeeded}). In case of failure due to exhausted stocks (\texttt{medical\_failed}), the cycle closes without requesting the return of the animal. Consequently, untreated patients remain trapped on the beds indefinitely, saturating room capacity and trapping logistics agents in cyclic delivery attempts.
+
+\subsection{Proposals for Improvement}
+\begin{itemize}
+    \item \textbf{Mandatory Return upon Therapy Failure}: Modify \texttt{veterinary.asl} so that treatment failure also triggers a return transport request, immediately freeing the bed.
+    \item \textbf{Preventive Stock Verification}: Condition the transport of an animal to the medical room on prior verification of available doses in storage.
+\end{itemize}
 
 \end{document}
+
 

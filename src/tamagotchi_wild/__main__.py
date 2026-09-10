@@ -12,7 +12,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--veterinary-agents", type=int, default=2)
     parser.add_argument("--logistics-agents", type=int, default=3)
     parser.add_argument("--feeding-agents", type=int, default=2)
-    parser.add_argument("--animals", type=int, default=1)
+    parser.add_argument("--animals", type=int, default=5)
     parser.add_argument("--food", type=int)
     parser.add_argument("--medicine", type=int)
     parser.add_argument("--timeout", type=float, default=60.0)

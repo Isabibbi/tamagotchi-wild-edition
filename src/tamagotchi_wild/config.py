@@ -24,7 +24,7 @@ class SimulationConfig:
     veterinary_agents: int = 2
     logistics_agents: int = 3
     feeding_agents: int = 2
-    animal_count: int = 1
+    animal_count: int = 5
 
     def __post_init__(self) -> None:
         counts = {
