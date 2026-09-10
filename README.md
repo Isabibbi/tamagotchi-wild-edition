@@ -55,10 +55,10 @@ python -m tamagotchi_wild
 ```text
 SIMULATION OK
 operators=7 veterinary=2 logistics=3 feeding=2
-animals=1 cages=1 bowls=1
-feeding=1/1 medical=1/1 healthy=1/1
-max-room-occupancy=1/2
-max-treatment-patients=1/3 max-carried-per-logistics=1/1
+animals=5 cages=5 bowls=5
+feeding=5/5 medical=5/5 healthy=5/5
+max-room-occupancy=2/2
+max-treatment-patients=3/3 max-carried-per-logistics=1/1
 ```
 
 The maximum observed room occupancy will be `1` or `2`, depending on message arrival order. It will never exceed `2`.
@@ -154,10 +154,12 @@ src/tamagotchi_wild/
 ├── bdi/             # AgentSpeak (.asl) cognitive decision plans
 ├── domain/          # Core entities, action models, and domain rules
 ├── environment/     # Authoritative world state, atomic claims, and area capacities
-├── messaging/       # FIPA metadata, ontologies, and typed JSON message contracts
 ├── visualization/   # Read-only state projection, SVG rendering, and event timeline
+├── config.py        # Environment geometry, thresholds, and simulation parameters
 ├── gui.py           # NiceGUI dashboard pages and interface components
 ├── gui_bridge.py    # Authenticated inter-process channel (NiceGUI ↔ SPADE)
+├── messaging.py     # FIPA metadata, ontologies, and typed JSON message contracts
+├── observability.py # Activity logger and event metrics
 ├── simulation.py    # Integrated simulation runner and orchestration
 └── __main__.py      # CLI entry point and argument parsing
 ```
