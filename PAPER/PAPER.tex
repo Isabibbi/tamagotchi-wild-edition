@@ -28,6 +28,34 @@
 
 \begin{document}
 \maketitle
+
+\section*{Project Metadata and Proposal}
+
+\begin{itemize}
+    \item \textbf{Programming Languages Used:} Python 3.12, AgentSpeak(L)
+    \item \textbf{Libraries Used:} SPADE (v4.1.4), SPADE-BDI (v0.3.2), NiceGUI (v3.15.0), pytest (v9.1.1)
+    \item \textbf{Project Difficulty:} Hard
+\end{itemize}
+
+\subsection*{Initial Project Proposal}
+The project proposes an automated management system for a Wildlife Rescue Center (CRAS), a domain derived from my direct experience as an ENPA volunteer.
+The implementation foresees a 2D grid visualization, adopting the architecture from the cleaning-robots (MarsEnv) example in Jason. 
+Alternatively, the adoption of the JaCaMo framework will be evaluated should the initial approach require a higher level of abstraction.
+
+Environment ModelingThe environment is modeled as a grid partitioned into specific functional areas: Food Storage, Medical Storage, Cage Area, and Treatment Room. Within this space, wild animals are represented as passive objects (resources) upon which the agents operate.
+
+Agent Architecture and DevelopmentThe system will orchestrate three types of agents (N Veterinarians, N Feeding Staff, N Logistics Staff).
+Development will follow an incremental approach: starting with the implementation of the feeding logic to validate basic cooperation mechanisms, and subsequently integrating care and health management routines.
+
+Role Specifications:Veterinary Agent: Manages healthcare logic. 
+It interacts with the Treatment Room and Medical Storage; it coordinates the workflow by sending requests to the Logistics Agent for patient transfer to the care area.Feeding Agent: Provides for animal sustenance. It interacts with the Food Storage; its activation is triggered by a request from the Logistics Agent (e.g., filling bowls).Logistics Agent (Transport): Manages the physical movement of the animal between the Treatment Room and the Cage Area. It is triggered by the Veterinary Agent when an animal requires transport, and it triggers the Feeding Agent to replenish food bowls in the cages.
+
+As an advanced objective, the project envisages the implementation of concurrency control policies governing access to shared resources (operational areas). This mechanism will enforce capacity constraints (e.g., a maximum of 2 concurrent agents), contingent upon the consolidation of the system's core functionalities.
+
+\bigskip
+\hrule
+\bigskip
+
 \section{Introduction}
 This project stems from the work developed for the Natural Language Processing 
 course, reinterpreting the same domain (a Wildlife Rescue Center CRAS)
@@ -848,7 +876,7 @@ In ordinary tests, the system proves stable and scales successfully with an incr
 
 The NiceGUI interface provides a complete overview of the operational state:
 
-\paragraph{Photo -- Interactive Floor Plan of the Rescue Centre}
+\paragraph{Photo 1 -- Interactive Floor Plan of the Rescue Centre}
 Represents the $12 \times 8$ grid divided into the 4 physical areas, tracking in real time the position of operators, cages, and the examination table.
 \begin{figure}[htbp]
     \centering
@@ -894,26 +922,26 @@ Displays overall progress (healthy patients, filled bowls, completed therapies) 
 \begin{lstlisting}[language={}]
 .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5 --food 2 --medicine 1 --timeout 60.0
 \end{lstlisting}
-\textbf{Dynamics:} The first 3 patients fully occupy the beds in the Treatment Room (maximum capacity: 3). The only available medicine treats the first patient, who is returned to the cage, freeing a bed that is immediately occupied by another animal.
+\textbf{Dynamics:} The first 3 patients fully occupy the examination table in the Treatment Room (maximum patient capacity: 3). The only available medicine treats the first patient, who is returned to the cage, freeing a spot on the table that is immediately occupied by another animal.
 
-\noindent\textbf{Deadlock:} The animals remaining on the table can neither be treated nor discharged. For the animals still in cages, the logistics operator receives the transport order but finds the treatment room saturated (\textit{treatment room patient capacity is full}). The agent enters an infinite retry loop: it accesses the Cage Area, ascertains the impossibility of delivering the patient, releases the room, and retries endlessly until the 60-second timeout occurs.
+\noindent\textbf{Livelock / Deadlock Condition:} The animals remaining on the table can neither be treated nor discharged. For the animals still in cages, the logistics operator receives the transport order but finds the treatment room saturated (\textit{treatment room patient capacity is full}). The agent enters an infinite retry loop, resulting in a livelock / deadlock condition where the agents poll endlessly until the global timeout occurs: it accesses the Cage Area, ascertains the impossibility of delivering the patient, releases the room, and retries endlessly until the 60-second timeout occurs.
 
 \subsubsection{Second Scenario -- Total Absence of Resources}
 \begin{lstlisting}[language={}]
 .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5 --food 0 --medicine 0 --timeout 60.0
 \end{lstlisting}
-\textbf{Dynamics:} With zero stocks, the feeding operators declare failure and terminate their activities. On the medical side, the first 3 animals are placed on the examination beds. The veterinarians immediately declare \texttt{failure} due to lack of medicine, but do not release the animals.
+\textbf{Dynamics:} With zero stocks, the feeding operators declare failure and terminate their activities. On the medical side, the first 3 animals are placed on the examination table. The veterinarians immediately declare \texttt{failure} due to lack of medicine, but do not release the animals.
 
-\noindent\textbf{Two-agent deadlock:} The 3 beds remain permanently occupied. \textbf{Two logistics operators end up simultaneously in an infinite loop of accessing the Cage Area}, continually attempting to retrieve the 4th and 5th animals without being able to deliver them to the saturated treatment room, until terminated by the global timeout.
+\noindent\textbf{Two-Agent Livelock / Deadlock:} The 3 examination table spots remain permanently occupied. \textbf{Two logistics operators end up simultaneously in an infinite loop of accessing the Cage Area}, continually attempting to retrieve the 4th and 5th animals without being able to deliver them to the saturated treatment room, causing a livelock / deadlock condition where the agents poll endlessly until the global timeout occurs.
 
-\subsubsection{Primary Root Cause of All Deadlocks}
-All observed deadlocks are traceable to a single cause: \textbf{the total and definitive capacity saturation of the beds in the treatment room}.
+\subsubsection{Primary Root Cause of All Deadlocks and Livelocks}
+All observed deadlocks and livelocks are traceable to a single cause: \textbf{the total and definitive capacity saturation of the examination table in the treatment room (i.e., all 3 patient spots occupied)}.
 
-In the BDI plan of the veterinarian (\texttt{veterinary.asl}), the return transport request (\texttt{request\_medical\_transport(..., return)}) is triggered exclusively upon therapeutic success (\texttt{treatment\_succeeded}). In case of failure due to exhausted stocks (\texttt{medical\_failed}), the cycle closes without requesting the return of the animal. Consequently, untreated patients remain trapped on the beds indefinitely, saturating room capacity and trapping logistics agents in cyclic delivery attempts.
+In the BDI plan of the veterinarian (\texttt{veterinary.asl}), the return transport request (\texttt{request\_medical\_transport(..., return)}) is triggered exclusively upon therapeutic success (\texttt{treatment\_succeeded}). In case of failure due to exhausted stocks (\texttt{medical\_failed}), the cycle closes without requesting the return of the animal. Consequently, untreated patients remain trapped on the examination table indefinitely, saturating room capacity and trapping logistics agents in cyclic delivery attempts.
 
 \subsection{Proposals for Improvement}
 \begin{itemize}
-    \item \textbf{Mandatory Return upon Therapy Failure}: Modify \texttt{veterinary.asl} so that treatment failure also triggers a return transport request, immediately freeing the bed.
+    \item \textbf{Mandatory Return upon Therapy Failure}: Modify \texttt{veterinary.asl} so that treatment failure also triggers a return transport request, immediately freeing the spot on the examination table.
     \item \textbf{Preventive Stock Verification}: Condition the transport of an animal to the medical room on prior verification of available doses in storage.
 \end{itemize}
 
