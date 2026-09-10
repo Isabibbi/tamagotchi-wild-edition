@@ -1,62 +1,56 @@
 # Tamagotchi Wild Edition: Multi-Agent Care for Virtual Pets
 
-Sistema multi-agente didattico per la gestione automatizzata di un Centro di
-Recupero Animali Selvatici (CRAS), ispirato all'esperienza di volontariato ENPA.
+Educational multi-agent system for the automated management of a Wildlife Rescue Center (CRAS), inspired by volunteer experience at ENPA.
 
-> **Stato:** alimentazione e cure mediche sono integrate in un'unica simulazione
-> SPADE-BDI. Il numero degli operatori si decide all'avvio, fino a un massimo di
-> 7; l'Environment Agent non rientra in questo limite. Ogni area ammette al
-> massimo 2 operatori contemporaneamente. Anche il numero degli animali è
-> configurabile: ogni animale genera automaticamente gabbia, ciotola e due task.
-> È disponibile una GUI live con pianta illustrata e cronologia degli eventi SPADE.
+> **Status:** Feeding routines and medical care workflows are integrated into a single SPADE-BDI simulation. The number of operators is configured at startup, up to a maximum of 7; the Environment Agent is additional and does not count toward this limit. Each operational area admits at most 2 operators simultaneously. The number of animals is also configurable (from 1 to 40): each animal automatically generates a cage, a bowl, a feeding task, and a medical task. A live web GUI featuring an illustrated floor plan and real-time SPADE event timeline is available.
 
-## Agenti
+---
 
-| Agente | Responsabilità |
+## Agents
+
+| Agent | Responsibility |
 |---|---|
-| **Veterinary** | Coordina il ciclo medico, prende il medicinale e cura l'animale |
-| **Logistics** | Trasporta gli animali e coordina il rifornimento delle ciotole |
-| **Feeding** | Preleva il cibo e riempie le ciotole |
-| **Environment** | Mantiene lo stato autorevole, assegna atomicamente i task e controlla gli accessi alle aree |
-| **Visualization** | Riceve via SPADE/XMPP gli snapshot dell'Environment e li consegna alla GUI |
+| **Veterinary** | Deliberates medical cycles, collects medicine from storage, and treats the patient |
+| **Logistics** | Transports animals and coordinates bowl replenishment |
+| **Feeding** | Collects food and refills bowls |
+| **Environment** | Maintains authoritative ground truth, atomically assigns tasks, and enforces area capacities |
+| **Visualization** | Receives state snapshots from the Environment via SPADE/XMPP and delivers them to the GUI |
 
-La simulazione predefinita avvia contemporaneamente:
+The default baseline simulation starts simultaneously:
 
 ```text
-2 Veterinary + 3 Logistics + 2 Feeding = 7 operatori
-1 Environment Agent aggiuntivo = 8 agenti SPADE attivi
-Con la GUI: 1 Visualization Agent aggiuntivo = 9 agenti SPADE attivi
+2 Veterinary + 3 Logistics + 2 Feeding = 7 operators
+1 additional Environment Agent = 8 active SPADE agents
+With GUI: 1 additional Visualization Agent = 9 active SPADE agents
 ```
 
-Alimentazione e cure non sono modalità alternative: i due flussi partono nella
-stessa esecuzione e avanzano in modo concorrente tramite messaggi SPADE/XMPP.
+Feeding and medical care are not mutually exclusive modes: both workflows run concurrently within the same execution through SPADE/XMPP message exchanges.
 
-## Concorrenza e assegnazione
+---
 
-- ogni fase di lavoro viene assegnata atomicamente a un solo agente;
-- gli altri agenti dello stesso ruolo rifiutano il duplicato senza eseguirlo;
-- ogni addetto all'alimentazione esegue un solo task alla volta; le richieste
-  successive restano in attesa finché l'operatore torna disponibile;
-- per entrare in un'area operativa occorre un permesso dell'Environment;
-- il terzo agente attende e riprova finché uno dei due posti viene rilasciato;
-- il limite di 2 vale per Food Storage, Medical Storage, Cage Area e Treatment Room.
-- ogni Logistics può trasportare un solo animale alla volta;
-- la Treatment Room può contenere al massimo 3 pazienti;
-- il posto viene prenotato prima di prelevare l'animale: se i 3 posti sono
-  occupati, il paziente resta al sicuro nella propria gabbia;
-- quando un paziente arriva, il messaggio `patient_ready` attiva subito il
-  Veterinary assegnato; i trasporti di rientro hanno priorità sulle nuove
-  partenze dalle gabbie.
+## Concurrency and Mutual Exclusion
 
-## Avvio
+- **Atomic Task Claim:** Each work phase is atomically reserved by a single agent via the Environment; duplicate claims by other operators of the same role are rejected.
+- **Operator Availability:** Feeding operators handle one task at a time; subsequent requests remain queued until an operator becomes free.
+- **Area Semaphores:** Entering an operational area requires Environment authorization. If an area already holds 2 occupants, the requesting agent enters a non-blocking retry loop (`await asyncio.sleep(0.05)`) until a slot is freed upon `RELEASE_AREA`.
+- **Global Area Capacity Limit:** The limit of 2 concurrent operators applies strictly to Food Storage, Medical Storage, Cage Area, and Treatment Room.
+- **Carrying Capacity:** Each Logistics agent can transport only one animal at a time.
+- **Clinical Table Capacity:** The Treatment Room can hold a maximum of 3 patients simultaneously on the examination table.
+- **Precondition & Staging:** Treatment spots are reserved prior to picking up the animal from its cage. If all 3 table spots are occupied, the patient remains safely inside its cage.
+- **Workflow Coordination:** When a patient is delivered to the examination table, the `patient_ready` message immediately activates the assigned Veterinary agent. Return transports are prioritized over new departures from cages.
 
-Da PowerShell, nella cartella del progetto:
+---
+
+## Running the Simulation
+
+From the project root (using your Python environment):
 
 ```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild
+python -m tamagotchi_wild
 ```
+*(Or with the local virtual environment: `& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild`)*
 
-Output finale atteso:
+### Expected Terminal Summary:
 
 ```text
 SIMULATION OK
@@ -67,118 +61,103 @@ max-room-occupancy=1/2
 max-treatment-patients=1/3 max-carried-per-logistics=1/1
 ```
 
-Il massimo osservato può essere `1` oppure `2`, in base all'ordine effettivo dei
-messaggi. Non può mai superare `2`.
+The maximum observed room occupancy will be `1` or `2`, depending on message arrival order. It will never exceed `2`.
 
-## Configurazione a runtime
+---
 
-### Interfaccia grafica
+## Runtime Configuration
 
-Per vedere la simulazione, usare lo stesso comando con `--gui`:
+### Graphical Mode (NiceGUI Dashboard)
+
+To observe the simulation live in your browser, launch with the `--gui` flag:
 
 ```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild --gui --animals 5
+python -m tamagotchi_wild --gui --animals 5
 ```
 
-Il browser si apre su una dashboard NiceGUI locale e mostra:
+The browser automatically opens the local dashboard at `http://127.0.0.1:8080`, displaying:
 
-- a sinistra, una pianta illustrata del CRAS senza celle o griglia visibile;
-- quattro stanze arredate, gabbie con sbarre, animali e ciotole riconoscibili;
-- tutti gli operatori come figure umane, animate mentre entrano o escono dalle stanze;
-- a destra, risorse, task completati e occupazione corrente delle aree;
-- nella cronologia, percezioni, richieste, movimenti, azioni e attese, con le
-  righe lunghe disposte su più linee anziché tagliate e nomi tecnici tradotti
-  in frasi semplici;
-- i tentativi temporaneamente impossibili sono evidenziati in giallo e spiegano
-  chi ha provato a fare cosa e perché deve aspettare; i retry identici vengono
-  raggruppati in un solo avviso finché l'azione non riesce;
-- nell'Area gabbie, ciotole disegnate e una legenda: verde significa piena,
-  rosso significa vuota;
-- alla fine, l'esito complessivo senza chiudere automaticamente la pagina.
+- **Interactive Floor Plan:** An illustrated SVG map of the CRAS showing the four operational rooms, cages, animals, food bowls, and the examination table.
+- **Active Staff Avatars:** Visual avatars representing veterinarians, logistics operators, and feeding staff, color-coded and animated as they move between rooms.
+- **Area Capacity Monitors:** Real-time occupancy indicators showing current vs. maximum capacity (e.g., `2/2` with alerts upon saturation).
+- **Resource Counters & Metrics:** Instant inventory levels for food stocks and medical supplies, along with total completed tasks and healthy animals.
+- **Live Event Timeline:** Chronological event log showing physical actions approved or rejected by the Environment (`#001`, `#002`), along with internal agent communications (prefixed with `↳`).
 
-Gli aggiornamenti non accedono direttamente allo stato della simulazione:
-l'Environment invia messaggi JSON con ontologia `cras.visualization` al
-Visualization Agent SPADE. NiceGUI si limita a disegnare ciò che questo agente
-riceve tramite un canale locale autenticato. `--gui-delay 0.20` regola i secondi
-fra due frame; non rallenta i flussi interni degli agenti.
+Graphical updates do not access simulation state directly: the Environment Agent publishes JSON frames over the `cras.visualization` ontology to the `VisualizationAgent`. A dedicated, authenticated inter-process channel (`gui_bridge.py`) forwards frames to the web server without slowing down agent execution loops.
 
-La pagina è servita soltanto su `127.0.0.1`: non viene pubblicata su Internet.
-Se il browser non si apre automaticamente, visitare `http://127.0.0.1:8080`.
+### Command-Line Arguments
 
-### Parametri della simulazione
-
-Esempio con cinque animali e cinque casi completi:
+Example running 5 animals with a custom staff allocation:
 
 ```powershell
-& .\.my_sdai\Scripts\python.exe -m tamagotchi_wild `
+python -m tamagotchi_wild `
   --veterinary-agents 2 `
   --logistics-agents 3 `
   --feeding-agents 2 `
   --animals 5
 ```
 
-Ogni ruolo deve avere almeno un agente, perché entrambi i flussi sono sempre
-attivi. La somma dei tre valori deve essere al massimo 7. Per esempio,
-`2 + 4 + 2 = 8` viene rifiutato prima di avviare SPADE.
+Each role requires at least 1 agent. The total sum of operators must not exceed 7.
 
-`--animals N` accetta da 1 a 40. Con `--animals 5` vengono creati:
+With `--animals 5`, the system generates:
+- 5 animals with randomized health states
+- 5 cages in the Cage Area
+- 5 bowls
+- 5 Feeding tasks
+- 5 Medical tasks
 
-```text
-5 animali con condizioni differenti
-5 gabbie nella stessa Cage Area
-5 ciotole
-5 task Feeding
-5 task Medical
-```
-
-Se non vengono specificati, cibo e medicinali iniziali sono automaticamente
-uguali al numero degli animali.
-
-Opzioni aggiuntive:
+#### Available Flags:
 
 ```text
---animals N    numero di animali e casi completi, da 1 a 40
---food N       quantità iniziale di cibo; default uguale agli animali
---medicine N   quantità iniziale di medicinali; default uguale agli animali
---timeout N    timeout in secondi
---gui          apre pianta illustrata e cronologia live
---gui-delay N  secondi fra due frame grafici; default 0.20
---gui-port N   porta locale della dashboard; default 8080
---gui-no-browser  avvia il server senza aprire automaticamente il browser
---json         risultato finale in JSON
+--animals N          Number of animals (1 to 40, default: 5)
+--veterinary-agents  Number of veterinarians (default: 2)
+--logistics-agents   Number of logistics operators (default: 3)
+--feeding-agents     Number of feeding operators (default: 2)
+--food N             Initial food units (default: equal to animal count)
+--medicine N         Initial medicine units (default: equal to animal count)
+--timeout N          Simulation timeout in seconds (default: 60.0)
+--gui                Opens the real-time web dashboard
+--gui-delay N        Seconds between GUI frame updates (default: 0.20)
+--gui-port N         Local web server port (default: 8080)
+--gui-no-browser     Starts the GUI web server without automatically opening the browser
+--json               Exports structured task execution results as JSON to stdout
 ```
 
-## Test
+---
+
+## Running Automated Tests
+
+Run the complete test suite using `pytest`:
 
 ```powershell
-& .\.my_sdai\Scripts\python.exe -m pytest
+python -m pytest
 ```
 
-I test verificano la configurazione fino a 7 operatori e 40 animali,
-l'assegnazione univoca dei task, il limite di 2 operatori per area, un solo
-animale trasportato per Logistics e al massimo 3 pazienti nella Treatment
-Room. Il test end-to-end usa 10 animali e 20 task contemporanei. I test
-dedicati avviano anche il
-Visualization Agent, verificano lo stream SPADE e i renderer usati da NiceGUI.
-Il server XMPP integrato viene avviato e arrestato automaticamente; non servono
-Internet né credenziali esterne.
+The test suite validates:
+- Configuration rules (up to 7 operators and 40 animals)
+- Atomic task reservations and duplicate claim rejections
+- Area capacity semaphores (maximum 2 operators per area)
+- Single-animal transport limit per logistics operator
+- Maximum 3 patient capacity on the clinical examination table
+- End-to-end integration scenarios (including 10 animals and 20 concurrent tasks)
+- Web visualization stream and frame contracts
 
-## Struttura principale
+An embedded XMPP server (`pyjabber`) starts and stops automatically during test runs with zero external network dependencies.
+
+---
+
+## Project Structure
 
 ```text
 src/tamagotchi_wild/
-├── agents/          # agenti SPADE-BDI, Environment e Visualization
-├── bdi/             # piani AgentSpeak dei tre ruoli
-├── domain/          # entità e comandi del dominio
-├── environment/     # stato autorevole, claim atomici e capacità
-├── messaging/       # contratti JSON e metadata FIPA
-├── visualization/   # proiezione read-only, SVG e cronologia
-├── gui.py           # pagina e componenti NiceGUI
-├── gui_bridge.py    # canale locale autenticato NiceGUI ↔ SPADE
-├── gui_worker.py    # processo autonomo della simulazione SPADE
-├── simulation.py    # unica simulazione integrata
-└── main.py          # parametri da terminale
+├── agents/          # SPADE-BDI roles, EnvironmentAgent, and VisualizationAgent
+├── bdi/             # AgentSpeak (.asl) cognitive decision plans
+├── domain/          # Core entities, action models, and domain rules
+├── environment/     # Authoritative world state, atomic claims, and area capacities
+├── messaging/       # FIPA metadata, ontologies, and typed JSON message contracts
+├── visualization/   # Read-only state projection, SVG rendering, and event timeline
+├── gui.py           # NiceGUI dashboard pages and interface components
+├── gui_bridge.py    # Authenticated inter-process channel (NiceGUI ↔ SPADE)
+├── simulation.py    # Integrated simulation runner and orchestration
+└── __main__.py      # CLI entry point and argument parsing
 ```
-
-La progettazione e le fasi incrementali sono descritte nella cartella
-[`docs`](docs/).
