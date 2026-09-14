@@ -14,10 +14,6 @@ from tamagotchi_wild.domain import (
 from tamagotchi_wild.environment import EnvironmentEvent, WorldSnapshot
 
 
-# ============================================================================
-# FIPA Metadata, Ontologies and Constants
-# ============================================================================
-
 SCHEMA_VERSION = 1
 MESSAGE_LANGUAGE = "json"
 
@@ -56,10 +52,6 @@ def workflow_metadata(
         "conversation-id": task_id,
     }
 
-
-# ============================================================================
-# Environment Action Contracts (Request / Response)
-# ============================================================================
 
 @dataclass(frozen=True, slots=True)
 class ActionRequest:
@@ -166,10 +158,6 @@ class ActionResponse:
         return cls(task_id, accepted, reason, event_sequence)
 
 
-# ============================================================================
-# Feeding & Bowl Perception Contracts
-# ============================================================================
-
 @dataclass(frozen=True, slots=True)
 class BowlEmptyPerception:
     task_id: str
@@ -240,10 +228,6 @@ class FeedingStatus:
             raise MessageContractError("reason must be a string")
         return cls(_text(payload, "task_id"), status, reason)
 
-
-# ============================================================================
-# Medical & Transport Contracts
-# ============================================================================
 
 @dataclass(frozen=True, slots=True)
 class SickAnimalPerception:
@@ -349,10 +333,6 @@ class TransportStatus:
         )
 
 
-# ============================================================================
-# Visualization Frame Contracts
-# ============================================================================
-
 @dataclass(frozen=True, slots=True)
 class VisualizationUpdate:
     sequence: int
@@ -450,10 +430,6 @@ class VisualizationUpdate:
             raise MessageContractError("visualization activity_lines must be strings")
         return cls(sequence, event, snapshot, tuple(activity_lines))
 
-
-# ============================================================================
-# Private Helpers & Serializers
-# ============================================================================
 
 def _encode(task_id: str, cage_id: str, bowl_id: str, event: str) -> str:
     return json.dumps(

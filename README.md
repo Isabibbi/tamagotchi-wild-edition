@@ -125,27 +125,6 @@ With `--animals 5`, the system generates:
 
 ---
 
-## Running Automated Tests
-
-Run the complete test suite using `pytest`:
-
-```powershell
-python -m pytest
-```
-
-The test suite validates:
-- Configuration rules (up to 7 operators and 40 animals)
-- Atomic task reservations and duplicate claim rejections
-- Area capacity semaphores (maximum 2 operators per area)
-- Single-animal transport limit per logistics operator
-- Maximum 3 patient capacity on the clinical examination table
-- End-to-end integration scenarios (including 10 animals and 20 concurrent tasks)
-- Web visualization stream and frame contracts
-
-An embedded XMPP server (`pyjabber`) starts and stops automatically during test runs with zero external network dependencies.
-
----
-
 ## Project Structure
 
 ```text
