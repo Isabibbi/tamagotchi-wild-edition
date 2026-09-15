@@ -38,6 +38,7 @@ Thumbs.db
 *.fdb_latexmk
 *.out
 *.pdf
+!PAPER/PAPER.pdf
 
 assets/logos/
 .agents/
