@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 560" width="100%" height="100%" style="background:transparent; font-family:'Segoe UI', system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="envGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="bdiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+    <linearGradient id="visGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="guiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Drop Shadows for clean elevation on light slides -->
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+
+    <!-- Markers -->
+    <marker id="arrYellow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrPurple" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrPink" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#db2777"/>
+    </marker>
+    <marker id="arrGreen" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="575" y="45" text-anchor="middle" fill="#0f172a" font-size="24" font-weight="700" letter-spacing="1">AGENT COMMUNICATION FLOW</text>
+  <text x="575" y="72" text-anchor="middle" fill="#64748b" font-size="14">Direct message exchange between operators, environment &amp; visualization</text>
+
+  <!-- ================= 1. ENVIRONMENT AGENT (Top Center) ================= -->
+  <g transform="translate(390, 110)" filter="url(#shadow)">
+    <rect width="270" height="75" rx="14" fill="#ffffff" stroke="#0284c7" stroke-width="2"/>
+    <rect x="0" y="0" width="270" height="24" rx="14" fill="url(#envGrad)"/>
+    <text x="135" y="16" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">ARBITER &amp; SENSOR</text>
+    <text x="135" y="52" text-anchor="middle" fill="#0f172a" font-size="17" font-weight="700">EnvironmentAgent</text>
+  </g>
+
+  <!-- ================= 2. THE 3 OPERATORS (Bottom Row) ================= -->
+  
+  <!-- Veterinary Agent -->
+  <g transform="translate(50, 370)" filter="url(#shadow)">
+    <rect width="220" height="85" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+    <rect x="0" y="0" width="220" height="24" rx="14" fill="url(#bdiGrad)"/>
+    <text x="110" y="16" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">OPERATOR (BDI)</text>
+    <text x="110" y="52" text-anchor="middle" fill="#0f172a" font-size="17" font-weight="700">VeterinaryAgent</text>
+    <text x="110" y="72" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="600">Clinical Care</text>
+  </g>
+
+  <!-- Logistics Agent -->
+  <g transform="translate(415, 370)" filter="url(#shadow)">
+    <rect width="220" height="85" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+    <rect x="0" y="0" width="220" height="24" rx="14" fill="url(#bdiGrad)"/>
+    <text x="110" y="16" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">OPERATOR (BDI)</text>
+    <text x="110" y="52" text-anchor="middle" fill="#0f172a" font-size="17" font-weight="700">LogisticsAgent</text>
+    <text x="110" y="72" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="600">Dispatch &amp; Transport</text>
+  </g>
+
+  <!-- Feeding Agent -->
+  <g transform="translate(780, 370)" filter="url(#shadow)">
+    <rect width="220" height="85" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+    <rect x="0" y="0" width="220" height="24" rx="14" fill="url(#bdiGrad)"/>
+    <text x="110" y="16" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">OPERATOR (BDI)</text>
+    <text x="110" y="52" text-anchor="middle" fill="#0f172a" font-size="17" font-weight="700">FeedingAgent</text>
+    <text x="110" y="72" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="600">Food Supply</text>
+  </g>
+
+  <!-- ================= 3. VISUALIZATION AGENT & GUI (Top Right) ================= -->
+  
+  <!-- VisualizationAgent -->
+  <g transform="translate(850, 110)" filter="url(#shadow)">
+    <rect width="230" height="75" rx="14" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+    <rect x="0" y="0" width="230" height="24" rx="14" fill="url(#visGrad)"/>
+    <text x="115" y="16" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">REACTIVE BRIDGE</text>
+    <text x="115" y="52" text-anchor="middle" fill="#0f172a" font-size="17" font-weight="700">VisualizationAgent</text>
+  </g>
+
+  <!-- NiceGUI Dashboard (Below VisualizationAgent) -->
+  <g transform="translate(875, 230)" filter="url(#shadow)">
+    <rect width="180" height="50" rx="10" fill="#ffffff" stroke="#059669" stroke-width="1.8"/>
+    <rect x="0" y="0" width="180" height="18" rx="10" fill="url(#guiGrad)"/>
+    <text x="90" y="12" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="700">WEB GUI</text>
+    <text x="90" y="38" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="700">NiceGUI Dashboard</text>
+  </g>
+
+  <!-- Arrow: VisualizationAgent to NiceGUI -->
+  <path d="M 965 185 L 965 230" stroke="#059669" stroke-width="2.5" marker-end="url(#arrGreen)"/>
+
+  <!-- ================= ARROWS & DIRECT COMMUNICATIONS ================= -->
+
+  <!-- 1. Alarms: Env to Vet -->
+  <path d="M 420 185 Q 230 220 170 370" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#arrYellow)"/>
+  <rect x="170" y="240" width="140" height="26" rx="6" fill="#ffffff" stroke="#d97706" stroke-width="1.8"/>
+  <text x="240" y="257" text-anchor="middle" fill="#b45309" font-size="12" font-weight="700">Sick Animal Alert</text>
+
+  <!-- 2. Alarms: Env to Logistics -->
+  <path d="M 525 185 L 525 370" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#arrYellow)"/>
+  <rect x="455" y="250" width="140" height="26" rx="6" fill="#ffffff" stroke="#d97706" stroke-width="1.8"/>
+  <text x="525" y="267" text-anchor="middle" fill="#b45309" font-size="12" font-weight="700">Empty Bowl Alert</text>
+
+  <!-- 3. Physical Actions: Operators to Env -->
+  <path d="M 865 370 Q 755 220 660 170" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <rect x="690" y="220" width="175" height="26" rx="6" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="777" y="237" text-anchor="middle" fill="#0369a1" font-size="12" font-weight="700">Actions &amp; Room Access</text>
+
+  <!-- 4. Vet <-> Logistics: Patient Transport -->
+  <path d="M 270 405 L 415 405" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrPurple)"/>
+  <path d="M 415 420 L 270 420" fill="none" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrPurple)"/>
+  <rect x="285" y="375" width="115" height="24" rx="6" fill="#ffffff" stroke="#7c3aed" stroke-width="1.8"/>
+  <text x="342" y="391" text-anchor="middle" fill="#7c3aed" font-size="11.5" font-weight="700">Patient Transport</text>
+
+  <!-- 5. Logistics <-> Feeding: Food Task -->
+  <path d="M 635 405 L 780 405" fill="none" stroke="#db2777" stroke-width="2.5" marker-end="url(#arrPink)"/>
+  <path d="M 780 420 L 635 420" fill="none" stroke="#db2777" stroke-width="2.5" marker-end="url(#arrPink)"/>
+  <rect x="650" y="375" width="110" height="24" rx="6" fill="#ffffff" stroke="#db2777" stroke-width="1.8"/>
+  <text x="705" y="391" text-anchor="middle" fill="#db2777" font-size="11.5" font-weight="700">Food Refill</text>
+
+  <!-- 6. Env to VisualizationAgent: State Updates -->
+  <path d="M 660 147 L 850 147" fill="none" stroke="#059669" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#arrGreen)"/>
+  <rect x="685" y="117" width="135" height="24" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.8"/>
+  <text x="752" y="133" text-anchor="middle" fill="#047857" font-size="11.5" font-weight="700">State Updates</text>
+</svg>

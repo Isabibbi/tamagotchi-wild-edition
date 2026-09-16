@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" width="100%" height="100%" style="background:transparent; font-family:'Segoe UI', system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+    
+    <!-- Shadow for clean separation on white slides -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="48" text-anchor="middle" fill="#0f172a" font-size="24" font-weight="700" letter-spacing="1">MESSAGE STRUCTURE</text>
+  <text x="500" y="74" text-anchor="middle" fill="#64748b" font-size="14">FIPA-ACL Standard Envelope + Structured JSON Body</text>
+
+  <!-- Main Outer Container -->
+  <g transform="translate(60, 100)" filter="url(#shadow)">
+    <!-- Container Box -->
+    <rect width="880" height="380" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+    <!-- ================= LEFT: ENVELOPE (HEADER) ================= -->
+    <g transform="translate(30, 30)">
+      <rect width="390" height="320" rx="12" fill="#f8fafc" stroke="#0284c7" stroke-width="1.8"/>
+      <rect x="0" y="0" width="390" height="36" rx="12" fill="url(#headerGrad)"/>
+      <text x="195" y="24" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="0.5">ENVELOPE (FIPA-ACL Metadata)</text>
+      
+      <!-- Field 1: Performative -->
+      <g transform="translate(25, 60)">
+        <text x="0" y="16" fill="#475569" font-size="13" font-weight="600">performative :</text>
+        <rect x="110" y="0" width="220" height="26" rx="6" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="220" y="17" text-anchor="middle" fill="#b45309" font-size="13" font-family="Consolas, monospace" font-weight="700">"request"</text>
+      </g>
+
+      <!-- Field 2: Ontology -->
+      <g transform="translate(25, 105)">
+        <text x="0" y="16" fill="#475569" font-size="13" font-weight="600">ontology :</text>
+        <rect x="110" y="0" width="220" height="26" rx="6" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+        <text x="220" y="17" text-anchor="middle" fill="#0369a1" font-size="13" font-family="Consolas, monospace" font-weight="700">"cras.transport"</text>
+      </g>
+
+      <!-- Field 3: Conversation-ID -->
+      <g transform="translate(25, 150)">
+        <text x="0" y="16" fill="#475569" font-size="13" font-weight="600">conv-id :</text>
+        <rect x="110" y="0" width="220" height="26" rx="6" fill="#ffffff" stroke="#db2777" stroke-width="1.5"/>
+        <text x="220" y="17" text-anchor="middle" fill="#be185d" font-size="13" font-family="Consolas, monospace" font-weight="700">"medical_001"</text>
+      </g>
+
+      <!-- Field 4: Language -->
+      <g transform="translate(25, 195)">
+        <text x="0" y="16" fill="#475569" font-size="13" font-weight="600">language :</text>
+        <rect x="110" y="0" width="220" height="26" rx="6" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+        <text x="220" y="17" text-anchor="middle" fill="#334155" font-size="13" font-family="Consolas, monospace">"json"</text>
+      </g>
+
+      <!-- Envelope Explanation Note -->
+      <line x1="20" y1="245" x2="370" y2="245" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="195" y="275" text-anchor="middle" fill="#0284c7" font-size="12.5" font-weight="600">Routes message &amp; isolates task</text>
+      <text x="195" y="295" text-anchor="middle" fill="#64748b" font-size="11.5">Zero cross-talk between operators</text>
+    </g>
+
+    <!-- Center Plus -->
+    <text x="440" y="200" text-anchor="middle" fill="#94a3b8" font-size="36" font-weight="300">+</text>
+
+    <!-- ================= RIGHT: BODY (JSON PAYLOAD) ================= -->
+    <g transform="translate(460, 30)">
+      <rect width="390" height="320" rx="12" fill="#f8fafc" stroke="#7c3aed" stroke-width="1.8"/>
+      <rect x="0" y="0" width="390" height="36" rx="12" fill="url(#bodyGrad)"/>
+      <text x="195" y="24" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="0.5">BODY (Typed JSON Payload)</text>
+
+      <!-- JSON Code Window -->
+      <g transform="translate(25, 55)">
+        <rect width="340" height="175" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+        <text x="20" y="30" fill="#0f172a" font-size="13" font-family="Consolas, monospace">{</text>
+        <text x="40" y="55" fill="#0f172a" font-size="13" font-family="Consolas, monospace"><tspan fill="#7c3aed">"task_id"</tspan>: <tspan fill="#b45309">"medical_001"</tspan>,</text>
+        <text x="40" y="80" fill="#0f172a" font-size="13" font-family="Consolas, monospace"><tspan fill="#7c3aed">"animal_id"</tspan>: <tspan fill="#b45309">"animal_02"</tspan>,</text>
+        <text x="40" y="105" fill="#0f172a" font-size="13" font-family="Consolas, monospace"><tspan fill="#7c3aed">"cage_id"</tspan>: <tspan fill="#b45309">"cage_01"</tspan>,</text>
+        <text x="40" y="130" fill="#0f172a" font-size="13" font-family="Consolas, monospace"><tspan fill="#7c3aed">"direction"</tspan>: <tspan fill="#b45309">"outbound"</tspan></text>
+        <text x="20" y="155" fill="#0f172a" font-size="13" font-family="Consolas, monospace">}</text>
+      </g>
+
+      <!-- Body Explanation Note -->
+      <line x1="20" y1="245" x2="370" y2="245" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="195" y="275" text-anchor="middle" fill="#7c3aed" font-size="12.5" font-weight="600">Task data validated by Dataclasses</text>
+      <text x="195" y="295" text-anchor="middle" fill="#64748b" font-size="11.5">MessageContractError if schema invalid</text>
+    </g>
+  </g>
+</svg>
